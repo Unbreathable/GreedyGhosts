@@ -1,0 +1,25 @@
+name: Elfhunt
+version: '${tag}'
+main: de.badgames.elfhunt.GreedyGhosts
+api-version: '1.21.8'
+authors: [Presti, Unbreathable]
+load: POSTWORLD
+dependencies:
+  server:
+    PrefixesApi:
+      load: BEFORE
+    FriendSystem-Spigot-API:
+      load: BEFORE
+      required: false
+    FancyNpcs:
+      load: BEFORE
+      required: false
+    ASPaperPlugin:
+      load: BEFORE
+      required: false
+    ReplaySystem:
+      load: BEFORE
+      required: false
+    simplecloud-api:
+      load: BEFORE
+      required: false
