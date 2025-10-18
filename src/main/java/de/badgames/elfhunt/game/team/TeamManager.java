@@ -1,8 +1,8 @@
 package de.badgames.elfhunt.game.team;
 
-import de.badgames.elfhunt.GreedyGhosts;
-import de.badgames.elfhunt.game.team.impl.HunterTeam;
-import de.badgames.elfhunt.game.team.impl.ElfTeam;
+import de.badgames.elfhunt.game.GameManager;
+import de.badgames.elfhunt.game.team.impl.FarmerTeam;
+import de.badgames.elfhunt.game.team.impl.GhostTeam;
 import de.badgames.gameCore.team.ITeamManager;
 import de.badgames.gameCore.team.Team;
 import de.badgames.prefix.api.PrefixApi;
@@ -16,12 +16,12 @@ public class TeamManager  implements ITeamManager<Team> {
 
     PrefixApi prefixApi;
 
-    public TeamManager() {
+    public TeamManager(GameManager manager) {
         prefixApi = Bukkit.getServicesManager().load(PrefixApi.class);
 
         // Register teams
-        addTeam(new ElfTeam(GreedyGhosts.getInstance().getGameManager().getMaxTeamSize()));
-        addTeam(new HunterTeam(GreedyGhosts.getInstance().getGameManager().getMaxTeamSize()));
+        addTeam(new GhostTeam(manager.getMaxTeamSize()));
+        addTeam(new FarmerTeam(manager.getMaxTeamSize()));
         registerPrefixGroups();
     }
 

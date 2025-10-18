@@ -6,6 +6,7 @@ import de.badgames.gameCore.team.Team;
 import de.badgames.pluginCore.PluginCore;
 import de.badgames.prefix.api.PrefixApi;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.ComponentBuilder;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.title.Title;
@@ -15,16 +16,16 @@ import org.bukkit.entity.Player;
 import java.time.Duration;
 import java.util.Objects;
 
-public class ElfTeam extends Team {
+public class GhostTeam extends Team {
 
-    public ElfTeam(int maxPlayers) {
-        super("Elves", "⑱", "GREEN", "§a§l", XMaterial.SPRUCE_SAPLING, maxPlayers);
+    public GhostTeam(int maxPlayers) {
+        super("Ghosts", "§f§lGhosts", "WHITE", "§f§l", XMaterial.SKELETON_SKULL, maxPlayers);
     }
 
     @Override
     public void giveKit(Player player, boolean teleport) {
         if (teleport) {
-            player.teleport(Objects.requireNonNull(GreedyGhosts.getInstance().getGameManager().getMapLocation("Elves")));
+            player.teleport(Objects.requireNonNull(GreedyGhosts.getInstance().getGameManager().getMapLocation("Center")));
         }
     }
 
@@ -33,10 +34,15 @@ public class ElfTeam extends Team {
         for (Player player : getPlayers()) {
 
             player.sendMessage(Component.text(" "));
-            player.sendMessage(Component.text("    §7You are an §a§lelf§7!"));
+            player.sendMessage(Component.text("    You are a", NamedTextColor.GRAY).appendSpace()
+                    .append(Component.text("Ghost", NamedTextColor.WHITE, TextDecoration.BOLD))
+                    .append(Component.text("!", NamedTextColor.GRAY)));
             player.sendMessage(Component.text(" "));
-            player.sendMessage(Component.text("§7Deliver all §apresents §7into town and"));
-            player.sendMessage(Component.text("§7make sure §aeveryone §7gets one."));
+            player.sendMessage(Component.text("Steal all", NamedTextColor.GRAY).appendSpace()
+                    .append(Component.text("snacks", NamedTextColor.WHITE)).appendSpace()
+                    .append(Component.text("before the", NamedTextColor.GRAY)));
+            player.sendMessage(Component.text("timer", NamedTextColor.WHITE).appendSpace()
+                    .append(Component.text("hits zero!", NamedTextColor.GRAY)));
             player.sendMessage(Component.text(" "));
         }
     }
@@ -45,15 +51,23 @@ public class ElfTeam extends Team {
     public void handleWin() {
 
         Bukkit.broadcast(Component.text(" "));
-        Bukkit.broadcast(Component.text("   §aThe §a§lElves §7won the §agame§7!"));
+        Bukkit.broadcast(Component.text("   The").appendSpace()
+                .append(Component.text("Ghosts", NamedTextColor.WHITE, TextDecoration.BOLD)).appendSpace()
+                .append(Component.text("won the", NamedTextColor.GRAY)).appendSpace()
+                .append(Component.text("game", NamedTextColor.WHITE))
+                .append(Component.text("!", NamedTextColor.GRAY)));
         Bukkit.broadcast(Component.text(" "));
-        Bukkit.broadcast(Component.text("§7All §apresents §7were delivered and the §aeveryone"));
-        Bukkit.broadcast(Component.text("§7can enjoy a beautiful §aChristmas§7!"));
+        Bukkit.broadcast(Component.text("All", NamedTextColor.GRAY).appendSpace()
+                .append(Component.text("snacks", NamedTextColor.WHITE)).appendSpace()
+                .append(Component.text("have been stolen by", NamedTextColor.GRAY)));
+        Bukkit.broadcast(Component.text("the", NamedTextColor.GRAY).appendSpace()
+                .append(Component.text("ghosts", NamedTextColor.WHITE, TextDecoration.BOLD))
+                .append(Component.text("! What a sad Halloween...", NamedTextColor.GRAY)));
         Bukkit.broadcast(Component.text(" "));
 
         for (Player player : getPlayers()) {
             player.showTitle(Title.title(
-                    Component.text("Victory Royale", NamedTextColor.GREEN, TextDecoration.BOLD),
+                    Component.text("VICTORY", NamedTextColor.GREEN, TextDecoration.BOLD),
                     Component.empty(),
                     Title.Times.times(Duration.ofSeconds(1), Duration.ofSeconds(3), Duration.ofSeconds(1))
             ));
@@ -63,7 +77,7 @@ public class ElfTeam extends Team {
         for (Player player : Bukkit.getOnlinePlayers()) {
             if (!containsPlayer(player)) {
                 player.showTitle(Title.title(
-                        Component.text("Game Over", NamedTextColor.RED, TextDecoration.BOLD),
+                        Component.text("DEFEAT", NamedTextColor.RED, TextDecoration.BOLD),
                         Component.empty(),
                         Title.Times.times(Duration.ofSeconds(1), Duration.ofSeconds(3), Duration.ofSeconds(1))
                 ));
@@ -75,13 +89,11 @@ public class ElfTeam extends Team {
     @Override
     public void join(Player player) {
         super.join(player);
-        player.sendMessage(GreedyGhosts.PREFIX.append(Component.text("You joined the team", PluginCore.getPrimaryColor())).appendSpace().append(Component.text(getDisplayName(), NamedTextColor.WHITE)));
     }
 
     @Override
     public void leave(Player player) {
         super.leave(player);
-        player.sendMessage(GreedyGhosts.PREFIX.append(Component.text("You left the team", PluginCore.getPrimaryColor())).appendSpace().append(Component.text(getDisplayName(), NamedTextColor.WHITE)));
     }
 
     @Override

@@ -1,4 +1,4 @@
-name: Elfhunt
+name: GreedyGhosts
 version: '${tag}'
 main: de.badgames.elfhunt.GreedyGhosts
 api-version: '1.21.8'
@@ -23,3 +23,5 @@ dependencies:
     simplecloud-api:
       load: BEFORE
       required: false
+    ViaVersion:
+      load: BEFORE

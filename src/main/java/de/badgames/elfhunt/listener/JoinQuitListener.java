@@ -11,6 +11,7 @@ public class JoinQuitListener implements Listener {
     @EventHandler
     public void onJoin(PlayerJoinEvent event) {
         event.joinMessage(null);
+        event.getPlayer().setGlowing(false);
         GreedyGhosts.getInstance().getGameManager().join(event.getPlayer());
     }
 

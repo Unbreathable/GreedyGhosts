@@ -102,12 +102,12 @@
     <dependency>
       <groupId>de.badgames</groupId>
       <artifactId>Prefix</artifactId>
-      <version>0.1.86</version>
+      <version>0.1.88</version>
       <scope>provided</scope>
     </dependency>
   </dependencies>
   <properties>
-    <badgames.version>0.1.86</badgames.version>
+    <badgames.version>0.1.88</badgames.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <maven.deploy.skip>true</maven.deploy.skip>
     <targetJavaVersion>21</targetJavaVersion>

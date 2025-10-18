@@ -25,8 +25,8 @@ import org.bukkit.plugin.java.JavaPlugin;
 import java.util.List;
 
 public final class GreedyGhosts extends JavaPlugin {
-    public static final Component PREFIX = Component.text("Greedy Ghosts", NamedTextColor.GREEN).appendSpace()
-            .append(Component.text("→", PluginCore.getSecondaryColor()).appendSpace());
+    public static final Component PREFIX = Component.text("Greedy Ghosts", NamedTextColor.GOLD).appendSpace()
+            .append(Component.text("→", NamedTextColor.YELLOW).appendSpace());
 
     @Getter
     private static GreedyGhosts instance;
@@ -43,7 +43,7 @@ public final class GreedyGhosts extends JavaPlugin {
     @Override
     public void onEnable() {
         instance = this;
-        PluginCore.init(instance);
+        PluginCore.init(instance, NamedTextColor.GOLD, NamedTextColor.YELLOW);
         CloudHelper.init();
         YAMLFixerUtil.load();
 

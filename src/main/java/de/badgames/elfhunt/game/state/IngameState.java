@@ -3,6 +3,7 @@ package de.badgames.elfhunt.game.state;
 import com.cryptomorin.xseries.XMaterial;
 import com.cryptomorin.xseries.XSound;
 import de.badgames.cloudhelper.CloudHelper;
+import de.badgames.elfhunt.util.LabyrinthGenerator;
 import de.badgames.gameCore.GameState;
 import de.badgames.gameCore.events.PlayerKillEvent;
 import de.badgames.shared.state.EndState;
@@ -14,8 +15,8 @@ import de.badgames.pluginCore.PluginCore;
 import de.badgames.pluginCore.util.ConfigUtil;
 import de.badgames.pluginCore.util.ItemStackBuilder;
 import de.badgames.elfhunt.GreedyGhosts;
-import de.badgames.elfhunt.game.team.impl.ElfTeam;
-import de.badgames.elfhunt.game.team.impl.HunterTeam;
+import de.badgames.elfhunt.game.team.impl.GhostTeam;
+import de.badgames.elfhunt.game.team.impl.FarmerTeam;
 import de.badgames.elfhunt.listener.machines.impl.PresentReceiver;
 import de.badgames.pluginCore.util.Messages;
 import me.catcoder.sidebar.ProtocolSidebar;
@@ -31,7 +32,6 @@ import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.entity.*;
 import org.bukkit.event.player.*;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.metadata.FixedMetadataValue;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
@@ -132,7 +132,7 @@ public class IngameState extends GameState {
         }
 
         // Change the amount of presents based on team size
-        final var hunterSize = GreedyGhosts.getInstance().getGameManager().getTeamManager().getTeam("Elves").getPlayers().size();
+        final var hunterSize = GreedyGhosts.getInstance().getGameManager().getTeamManager().getTeam("Ghosts").getPlayers().size();
         maxPresents = hunterSize * 4; // 4 per member of the team seems fine for 15 minutes
         presentsLeft = maxPresents;
 
@@ -151,6 +151,9 @@ public class IngameState extends GameState {
         world.setGameRule(GameRule.ANNOUNCE_ADVANCEMENTS, false);
         world.setGameRule(GameRule.NATURAL_REGENERATION, false);
 
+        // Generate the labyrinth
+        generateLabyrinth(GreedyGhosts.getInstance().getGameManager().getMapLocation("Center"), GreedyGhosts.getInstance().getGameManager().getMap().getCornerA());
+
         for (Player all : Bukkit.getOnlinePlayers()) {
             scoreboard.addViewer(all);
             PlayerUtil.clearPlayerMetaData(all);
@@ -163,6 +166,12 @@ public class IngameState extends GameState {
                 player.getInventory().clear();
                 player.setHealth(20);
                 team.giveKit(player, true);
+            }
+
+            if(team instanceof GhostTeam) {
+                for(Player player : team.getPlayers()) {
+                    player.addPotionEffect(new PotionEffect(PotionEffectType.INVISIBILITY, 10000, 1, false, false));
+                }
             }
         }
 
@@ -191,7 +200,7 @@ public class IngameState extends GameState {
 
                     // Check if the win condition for the hunters is met
                     if (currentGameTime <= 0) {
-                        handleWin(GreedyGhosts.getInstance().getGameManager().getTeamManager().getTeam("Hunters"));
+                        handleWin(GreedyGhosts.getInstance().getGameManager().getTeamManager().getTeam("Farmers"));
                         return;
                     }
 
@@ -211,6 +220,54 @@ public class IngameState extends GameState {
                 currentGameTime--;
             }
         });
+    }
+
+    private void generateLabyrinth(Location center, Location cornerA) {
+        final var diffX = Math.abs(cornerA.getX() - center.getX());
+
+        for (var face : new BlockFace[]{BlockFace.NORTH, BlockFace.EAST, BlockFace.SOUTH, BlockFace.WEST}) {
+            final var walls = generateSectionsForSide(center, face, (int) diffX);
+            LabyrinthGenerator.generateLabyrinth(walls, face);
+        }
+    }
+
+    /**
+     * Generate the sides for a wall pointing in a specific direction from a base location.
+     * @param towards
+     * @return
+     */
+    private List<LabyrinthGenerator.Section> generateSectionsForSide(Location base, BlockFace towards, int radius) {
+        final var wallAmount = 6;
+        var wallBase = base.getBlock().getRelative(towards, radius).getLocation().toCenterLocation();
+        final var directions = getTwoDirections(towards);
+        assert directions != null && directions.length == 2;
+
+        List<LabyrinthGenerator.Section> walls = new ArrayList<>();
+        for(int i = 0; i < wallAmount; i++) {
+            final var start = wallBase.getBlock().getRelative(directions[0], radius + i * 4).getLocation().toCenterLocation();
+            final var end = wallBase.getBlock().getRelative(directions[1], radius + i * 4).getLocation().toCenterLocation();
+
+            walls.add(new LabyrinthGenerator.Section(start, end));
+            wallBase = wallBase.getBlock().getRelative(towards, 4).getLocation().toCenterLocation();
+        }
+
+        return walls;
+    }
+
+    /**
+     * Get the directions you need to go towards from a face to construct a wall.
+     * Say you're currently generating a wall for a labyrinth pointing north, then you'd want the blocks to be placed east and
+     * west of the current block.
+     *
+     * @param towards The direction of the labyrinth
+     * @return The two directions the walls point to
+     */
+    private BlockFace[] getTwoDirections(BlockFace towards) {
+        return switch (towards) {
+            case SOUTH, NORTH -> new BlockFace[]{BlockFace.WEST, BlockFace.EAST};
+            case EAST, WEST -> new BlockFace[]{BlockFace.NORTH, BlockFace.SOUTH};
+            default -> null;
+        };
     }
 
     @Override
@@ -298,7 +355,7 @@ public class IngameState extends GameState {
 
 
     public void onReceiverClicked(Player player, String name) {
-        if (GreedyGhosts.getInstance().getGameManager().getTeamManager().getTeam(player) instanceof ElfTeam team) {
+        if (GreedyGhosts.getInstance().getGameManager().getTeamManager().getTeam(player) instanceof GhostTeam team) {
 
             // Make sure the guy actually has a present
             if (!currentDelivery.containsKey(player)) {
@@ -312,15 +369,6 @@ public class IngameState extends GameState {
                 presentsLeft -= 1;
                 currentDelivery.remove(player);
 
-                PlayerUtil.addStats(player, "elf.gifts.delivered", 1);
-                PlayerUtil.addAchievement(player, "eh.gift_giver", true);
-
-                if (!player.hasMetadata("elfhunt.hit")) {
-                    PlayerUtil.addAchievement(player, "eh.silent_sneaker", true);
-                } else {
-                    player.removeMetadata("elfhunt.hit", GreedyGhosts.getInstance());
-                }
-
                 // Send an announcement that a present has been delivered
                 Bukkit.broadcast(Component.text(" "));
                 Bukkit.broadcast(Component.text("§a§l" + player.getName() + " §7delivered a §apresent§7!"));
@@ -333,7 +381,6 @@ public class IngameState extends GameState {
                 XSound.ITEM_GOAT_HORN_SOUND_1.play(player.getLocation(), 0.5f, 1f);
                 // Check if the win condition for the elves is met
                 if (presentsLeft <= 0) {
-                    PlayerUtil.addAchievement(player, "eh.holiday_hero", true);
                     handleWin(team);
                 }
             } else {
@@ -345,7 +392,7 @@ public class IngameState extends GameState {
     }
 
     public void onGiverClicked(Player player) {
-        if (GreedyGhosts.getInstance().getGameManager().getTeamManager().getTeam(player) instanceof ElfTeam) {
+        if (GreedyGhosts.getInstance().getGameManager().getTeamManager().getTeam(player) instanceof GhostTeam) {
             if (currentDelivery.containsKey(player)) {
                 player.sendMessage(Component.text("§c§lSanta§7: I already gave you a present!"));
                 return;
@@ -362,19 +409,12 @@ public class IngameState extends GameState {
                     .withLore(Component.text("For:", NamedTextColor.RED).appendSpace()
                             .append(Component.text(receiver, NamedTextColor.GRAY))).buildStack());
             player.sendMessage(Component.text("§c§lSanta§7: Bring this present to §c" + receiver + "§7!"));
-            PlayerUtil.addStats(player, "elf.gifts.received", 1);
         }
     }
 
     @Override
     public void onMove(PlayerMoveEvent event) {
         if (event.getPlayer().getGameMode() == GameMode.SPECTATOR) {
-            return;
-        }
-
-        // Kill the player in case they fell down
-        if (event.getPlayer().getLocation().getY() <= 156) {
-            event.getPlayer().setHealth(0);
             return;
         }
 
@@ -386,7 +426,6 @@ public class IngameState extends GameState {
             if (trap.location.distance(event.getPlayer().getLocation()) <= 3 && !team.getName().equals(trap.team.getName())) {
                 toRemove.add(trap);
                 trap.onEnter(event.getPlayer());
-                PlayerUtil.addStats(event.getPlayer(), "elf.traps.triggered", 1);
                 break;
             }
         }
@@ -445,7 +484,6 @@ public class IngameState extends GameState {
         // Place a machine if it is one
         final var machine = GreedyGhosts.getInstance().getMachineManager().newMachineByMaterial(event.getBlockPlaced().getType(), event.getBlockPlaced().getLocation());
         if (machine != null) {
-            PlayerUtil.addStats(event.getPlayer(), "elf.traps.placed", 1);
             GreedyGhosts.getInstance().getMachineManager().addMachine(machine);
         } else {
 
@@ -501,40 +539,12 @@ public class IngameState extends GameState {
 
         Team team = GreedyGhosts.getInstance().getGameManager().getTeamManager().getTeam(player);
 
-        PlayerUtil.addStats(player, "elf.deaths", 1);
         if (player.getKiller() != null) {
-            PlayerUtil.addStats(player.getKiller(), "elf.kills", 1);
             Team killerTeam = GreedyGhosts.getInstance().getGameManager().getTeamManager().getTeam(player.getKiller());
             Bukkit.broadcast(GreedyGhosts.PREFIX.append(Component.text(team.getChatColor() + player.getName() + " §7was killed by " + killerTeam.getChatColor() + player.getKiller().getName() + "§7!")));
 
             Bukkit.getPluginManager().callEvent(new PlayerKillEvent<>(player, player.getKiller(), team, killerTeam, true));
-
-            if (killerTeam instanceof HunterTeam && team instanceof ElfTeam) {
-                PlayerUtil.addAchievement(player.getKiller(), "eh.elf_slayer", true);
-                int kills = player.hasMetadata("elf_killed_elfs") ? player.getMetadata("elf_killed_elfs").getFirst().asInt() : 0;
-                player.getKiller().setMetadata("elf_killed_elfs", new FixedMetadataValue(GreedyGhosts.getInstance(), ++kills));
-
-                if (currentDelivery.containsKey(player)) {
-                    String npcName = currentDelivery.get(player);
-
-                    PresentReceiver receiver = receivers.get(npcName);
-                    if (receiver != null) {
-                        if (PlayerUtil.getDistance(receiver.location, player.getLocation()) <= 5) {
-                            PlayerUtil.addAchievement(player.getKiller(), "eh.festive_defender", true);
-                        }
-                    }
-                }
-
-                if (kills >= 10) {
-                    if (kills >= 20) {
-                        PlayerUtil.addAchievement(player, "eh.elf_exterminator", true);
-                    } else {
-                        PlayerUtil.addAchievement(player, "eh.christmas_ruiner", true);
-                    }
-                }
-            }
         } else {
-            PlayerUtil.addStats(player, "elf.suicides", 1);
             Bukkit.broadcast(GreedyGhosts.PREFIX.append(Component.text(team.getChatColor() + player.getName() + " §7died!")));
         }
 
@@ -563,28 +573,20 @@ public class IngameState extends GameState {
     @Override
     public void onRespawn(PlayerRespawnEvent event) {
         final var team = GreedyGhosts.getInstance().getGameManager().getTeamManager().getTeam(event.getPlayer());
-        if (team instanceof HunterTeam) {
-            event.setRespawnLocation(Objects.requireNonNull(GreedyGhosts.getInstance().getGameManager().getMapLocation("Hunters")));
+        if (team instanceof FarmerTeam) {
+            event.setRespawnLocation(Objects.requireNonNull(GreedyGhosts.getInstance().getGameManager().getMapLocation("Center")));
         } else {
-            event.setRespawnLocation(Objects.requireNonNull(GreedyGhosts.getInstance().getGameManager().getMapLocation("Elves")));
+            event.setRespawnLocation(Objects.requireNonNull(GreedyGhosts.getInstance().getGameManager().getMapLocation("Center")));
         }
     }
 
     public void handleWin(Team team) {
         team.handleWin();
-        team.getPlayers().forEach(player -> {
-            PlayerUtil.addStats(player, "elf.win", 1);
-        });
 
-        for (Player all : Bukkit.getOnlinePlayers()) {
-            if (!team.getPlayers().contains(all)) {
-                PlayerUtil.addStats(all, "elf.loss", 1);
-            }
-        }
         scoreboard.destroy();
         GreedyGhosts.getInstance().getTaskManager().uninject(runnable);
         GreedyGhosts.getInstance().getGameManager().setCurrentState(new EndState(GreedyGhosts.getInstance(), GreedyGhosts.getInstance().getGameManager(), GreedyGhosts.getInstance().getTaskManager(),
-                Component.text("Elfhunt", NamedTextColor.GREEN, TextDecoration.BOLD), GreedyGhosts.PREFIX,
+                Component.text("Greedy Ghosts", NamedTextColor.GOLD, TextDecoration.BOLD), GreedyGhosts.PREFIX,
                 2, GreedyGhosts.getInstance().getGameManager().getMaxTeamSize() * 2,
                 x -> GreedyGhosts.getInstance().getGameManager().setCurrentState(new IngameState())));
     }
@@ -618,7 +620,7 @@ public class IngameState extends GameState {
         (new BukkitRunnable() {
             @Override
             public void run() {
-                player.teleportAsync(GreedyGhosts.getInstance().getGameManager().getMapLocation("Elves"));
+                player.teleportAsync(GreedyGhosts.getInstance().getGameManager().getMapLocation("Center"));
             }
         }).runTaskLater(GreedyGhosts.getInstance(), 10);
     }
@@ -629,14 +631,13 @@ public class IngameState extends GameState {
         Team team = GreedyGhosts.getInstance().getGameManager().getTeamManager().getTeam(player);
         if (team == null) return;
         team.removePlayer(player);
-        PlayerUtil.addStats(player, "elf.disconnects", 1);
 
         // Make sure the team loses if there are no players left
         if (team.getPlayers().isEmpty()) {
-            if (team instanceof HunterTeam) {
-                handleWin(GreedyGhosts.getInstance().getGameManager().getTeamManager().getTeam("Elves"));
+            if (team instanceof FarmerTeam) {
+                handleWin(GreedyGhosts.getInstance().getGameManager().getTeamManager().getTeam("Farmers"));
             } else {
-                handleWin(GreedyGhosts.getInstance().getGameManager().getTeamManager().getTeam("Hunters"));
+                handleWin(GreedyGhosts.getInstance().getGameManager().getTeamManager().getTeam("Ghosts"));
             }
         }
     }

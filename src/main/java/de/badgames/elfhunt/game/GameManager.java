@@ -37,7 +37,7 @@ public class GameManager implements IGameManager<GenericMap, Team> {
     private GenericMap map;
 
     public GameManager() {
-        teamManager = new TeamManager();
+        teamManager = new TeamManager(this);
 
         mapLoader = new MapLoader<>(GreedyGhosts.getInstance(), GenericMap.class);
 
@@ -48,7 +48,7 @@ public class GameManager implements IGameManager<GenericMap, Team> {
         GreedyGhosts.getInstance().getLogger().info(Arrays.toString(mapLoader.getAllMaps().stream().map(IMap::getName).toArray()));
 
         setCurrentState(new LobbyState(GreedyGhosts.getInstance(), this, GreedyGhosts.getInstance().getTaskManager(),
-                Component.text("Elfhunt", NamedTextColor.GREEN, TextDecoration.BOLD), GreedyGhosts.PREFIX,
+                Component.text("Greedy Ghosts", NamedTextColor.GOLD, TextDecoration.BOLD), GreedyGhosts.PREFIX,
                 2, getMaxTeamSize() * 2,
                 x -> setCurrentState(new IngameState())));
 
