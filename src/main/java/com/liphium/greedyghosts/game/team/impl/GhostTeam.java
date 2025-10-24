@@ -1,27 +1,23 @@
-package de.badgames.elfhunt.game.team.impl;
+package com.liphium.greedyghosts.game.team.impl;
 
 import com.cryptomorin.xseries.XMaterial;
-import de.badgames.elfhunt.GreedyGhosts;
+import com.liphium.greedyghosts.GreedyGhosts;
 import de.badgames.gameCore.team.Team;
-import de.badgames.pluginCore.PluginCore;
 import de.badgames.prefix.api.PrefixApi;
-import de.badgames.prefix.implementation.PrefixScoreboard;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.title.Title;
-import org.bukkit.Bukkit;
-import org.bukkit.Sound;
+import org.bukkit.*;
 import org.bukkit.entity.Player;
 
 import java.time.Duration;
 import java.util.Objects;
 
+public class GhostTeam extends Team {
 
-public class FarmerTeam extends Team {
-
-    public FarmerTeam(int maxPlayers) {
-        super("Farmers", "§e§lFarmers", "YELLOW", "§e§l", XMaterial.WHEAT, maxPlayers);
+    public GhostTeam(int maxPlayers) {
+        super("Ghosts", "§f§lGhosts", "WHITE", "§f§l", XMaterial.SKELETON_SKULL, maxPlayers);
     }
 
     @Override
@@ -37,17 +33,15 @@ public class FarmerTeam extends Team {
 
             player.sendMessage(Component.text(" "));
             player.sendMessage(Component.text("    You are a", NamedTextColor.GRAY).appendSpace()
-                    .append(Component.text("Farmer", NamedTextColor.YELLOW, TextDecoration.BOLD))
+                    .append(Component.text("Ghost", NamedTextColor.WHITE, TextDecoration.BOLD))
                     .append(Component.text("!", NamedTextColor.GRAY)));
             player.sendMessage(Component.text(" "));
-            player.sendMessage(Component.text("Stop the", NamedTextColor.GRAY).appendSpace()
-                    .append(Component.text("ghosts", NamedTextColor.WHITE, TextDecoration.BOLD)).appendSpace()
-                    .append(Component.text("from stealing", NamedTextColor.GRAY)));
-            player.sendMessage(Component.text("all your precious", NamedTextColor.GRAY).appendSpace()
-                    .append(Component.text("snacks", NamedTextColor.YELLOW)).appendSpace()
-                    .append(Component.text("!", NamedTextColor.GRAY)));
+            player.sendMessage(Component.text("Steal all", NamedTextColor.GRAY).appendSpace()
+                    .append(Component.text("snacks", NamedTextColor.WHITE)).appendSpace()
+                    .append(Component.text("before the", NamedTextColor.GRAY)));
+            player.sendMessage(Component.text("timer", NamedTextColor.WHITE).appendSpace()
+                    .append(Component.text("hits zero!", NamedTextColor.GRAY)));
             player.sendMessage(Component.text(" "));
-
         }
     }
 
@@ -56,17 +50,17 @@ public class FarmerTeam extends Team {
 
         Bukkit.broadcast(Component.text(" "));
         Bukkit.broadcast(Component.text("   The").appendSpace()
-                .append(Component.text("Farmers", NamedTextColor.YELLOW, TextDecoration.BOLD)).appendSpace()
+                .append(Component.text("Ghosts", NamedTextColor.WHITE, TextDecoration.BOLD)).appendSpace()
                 .append(Component.text("won the", NamedTextColor.GRAY)).appendSpace()
-                .append(Component.text("game", NamedTextColor.GREEN))
+                .append(Component.text("game", NamedTextColor.WHITE))
                 .append(Component.text("!", NamedTextColor.GRAY)));
         Bukkit.broadcast(Component.text(" "));
-        Bukkit.broadcast(Component.text("The", NamedTextColor.GRAY).appendSpace()
-                .append(Component.text("ghosts", NamedTextColor.WHITE, TextDecoration.BOLD)).appendSpace()
-                .append(Component.text("weren't able to", NamedTextColor.GRAY)));
-        Bukkit.broadcast(Component.text("steal all", NamedTextColor.GRAY).appendSpace()
-                .append(Component.text("snacks", NamedTextColor.GREEN))
-                .append(Component.text("!", NamedTextColor.GRAY)));
+        Bukkit.broadcast(Component.text("All", NamedTextColor.GRAY).appendSpace()
+                .append(Component.text("snacks", NamedTextColor.WHITE)).appendSpace()
+                .append(Component.text("have been stolen by", NamedTextColor.GRAY)));
+        Bukkit.broadcast(Component.text("the", NamedTextColor.GRAY).appendSpace()
+                .append(Component.text("ghosts", NamedTextColor.WHITE, TextDecoration.BOLD))
+                .append(Component.text("! What a sad Halloween...", NamedTextColor.GRAY)));
         Bukkit.broadcast(Component.text(" "));
 
         for (Player player : getPlayers()) {

@@ -1,4 +1,4 @@
-package de.badgames.elfhunt.util;
+package com.liphium.greedyghosts.util;
 
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;

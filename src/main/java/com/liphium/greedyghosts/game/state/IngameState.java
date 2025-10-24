@@ -1,7 +1,8 @@
-package de.badgames.elfhunt.game.state;
+package com.liphium.greedyghosts.game.state;
 
+import com.liphium.greedyghosts.game.HotbarKit;
 import de.badgames.cloudhelper.CloudHelper;
-import de.badgames.elfhunt.util.LabyrinthGenerator;
+import com.liphium.greedyghosts.util.LabyrinthGenerator;
 import de.badgames.gameCore.GameState;
 import de.badgames.gameCore.events.PlayerKillEvent;
 import de.badgames.shared.state.EndState;
@@ -11,9 +12,9 @@ import de.badgames.shared.util.PlayerUtil;
 import de.badgames.pluginCore.util.TimeFormatter;
 import de.badgames.pluginCore.util.ConfigUtil;
 import de.badgames.pluginCore.util.ItemStackBuilder;
-import de.badgames.elfhunt.GreedyGhosts;
-import de.badgames.elfhunt.game.team.impl.GhostTeam;
-import de.badgames.elfhunt.game.team.impl.FarmerTeam;
+import com.liphium.greedyghosts.GreedyGhosts;
+import com.liphium.greedyghosts.game.team.impl.GhostTeam;
+import com.liphium.greedyghosts.game.team.impl.FarmerTeam;
 import de.badgames.pluginCore.util.Messages;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -78,6 +79,9 @@ public class IngameState extends GameState {
     // Map with Player -> Respawn timer
     private final HashMap<Player, Integer> currentRespawnTimer = new HashMap<>();
 
+    // Selected kit by player (only ghost team)
+    private final HashMap<Player, HotbarKit> selectedKits = new HashMap<>();
+
     public IngameState() {
         super("In game", 30);
         MAX_GAME_TIME = Duration.ofMinutes(NumberConversions.toInt(ConfigUtil.get("game.time"))).getSeconds() * 20;
@@ -130,6 +134,7 @@ public class IngameState extends GameState {
                 player.getInventory().clear();
                 player.setHealth(20);
                 teleportToProperLocation(player);
+                team.giveKit(player, false);
             }
 
             // Apply invisibility to the ghosts
@@ -184,6 +189,11 @@ public class IngameState extends GameState {
                 currentGameTime--;
             }
         });
+    }
+
+    // Called by the kit selection screen
+    public void setKit(Player player, HotbarKit kit) {
+        selectedKits.put(player, kit);
     }
 
     /**
@@ -424,8 +434,8 @@ public class IngameState extends GameState {
         // Movement handling for the ghosts
         if(team instanceof GhostTeam) {
 
-            // Give them speed if they're inside the highway walls
-            if(inCenter) {
+            // Give them speed if they're inside the highway walls (but not in the center labyrinth)
+            if(!inCenter) {
                 if(!event.getPlayer().hasPotionEffect(PotionEffectType.SPEED)) {
                     event.getPlayer().addPotionEffect(new PotionEffect(PotionEffectType.SPEED, Integer.MAX_VALUE, 2, false, false));
                 }

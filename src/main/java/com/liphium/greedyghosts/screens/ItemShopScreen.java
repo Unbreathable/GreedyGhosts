@@ -1,4 +1,4 @@
-package de.badgames.elfhunt.screens;
+package com.liphium.greedyghosts.screens;
 
 import com.cryptomorin.xseries.XEnchantment;
 import com.cryptomorin.xseries.XMaterial;
@@ -7,7 +7,7 @@ import de.badgames.pluginCore.inventory.CItem;
 import de.badgames.pluginCore.inventory.CScreen;
 import de.badgames.pluginCore.util.InventoryUtil;
 import de.badgames.pluginCore.util.ItemStackBuilder;
-import de.badgames.elfhunt.GreedyGhosts;
+import com.liphium.greedyghosts.GreedyGhosts;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;
 import net.kyori.adventure.text.format.NamedTextColor;

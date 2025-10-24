@@ -1,14 +1,11 @@
-package de.badgames.elfhunt.listener.machines.impl;
+package com.liphium.greedyghosts.listener.machines.impl;
 
-import de.badgames.elfhunt.GreedyGhosts;
-import de.badgames.elfhunt.game.state.IngameState;
-import de.badgames.elfhunt.listener.machines.Machine;
+import com.liphium.greedyghosts.listener.machines.Machine;
+import de.badgames.pluginCore.PluginCore;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
-import org.bukkit.Color;
-import org.bukkit.Location;
-import org.bukkit.Material;
+import org.bukkit.*;
 import org.bukkit.entity.ArmorStand;
 import org.bukkit.event.player.PlayerInteractAtEntityEvent;
 import org.bukkit.inventory.ItemStack;
@@ -16,37 +13,35 @@ import org.bukkit.inventory.meta.LeatherArmorMeta;
 
 import java.util.UUID;
 
-public class PresentGiver extends Machine {
-
-    // TODO:: use model engine for custom models.
+public class ItemShop extends Machine {
 
     private final UUID uniqueId;
 
-    public PresentGiver(Location location) {
+    public ItemShop(Location location) {
         super(location, false);
 
         ArmorStand stand = location.getWorld().spawn(location.clone(), ArmorStand.class);
 
         stand.setCustomNameVisible(true);
-        stand.customName(Component.text("Santa", NamedTextColor.RED, TextDecoration.BOLD));
+        stand.customName(Component.text("Item shop", NamedTextColor.GOLD, TextDecoration.BOLD));
         stand.setGravity(false);
         stand.setInvulnerable(true);
         stand.setRemoveWhenFarAway(false);
         stand.setBasePlate(false);
 
-        // Give them red armor (similar to Santa ig)
-        stand.getEquipment().setHelmet(new ItemStack(Material.PLAYER_HEAD));
+        // Get her some drip
+        stand.getEquipment().setHelmet(new ItemStack(Material.PIGLIN_HEAD));
         ItemStack chestplate = new ItemStack(Material.LEATHER_CHESTPLATE);
         ItemStack leggings = new ItemStack(Material.LEATHER_LEGGINGS);
         ItemStack boots = new ItemStack(Material.LEATHER_BOOTS);
         LeatherArmorMeta chestplateMeta = (LeatherArmorMeta) chestplate.getItemMeta();
-        chestplateMeta.setColor(Color.fromRGB(255, 0, 0));
+        chestplateMeta.setColor(Color.fromRGB(255, 255, 255));
         chestplate.setItemMeta(chestplateMeta);
         LeatherArmorMeta leggingsMeta = (LeatherArmorMeta) leggings.getItemMeta();
-        leggingsMeta.setColor(Color.fromRGB(255, 0, 0));
+        leggingsMeta.setColor(Color.fromRGB(255, 255, 255));
         leggings.setItemMeta(leggingsMeta);
         LeatherArmorMeta bootsMeta = (LeatherArmorMeta) boots.getItemMeta();
-        bootsMeta.setColor(Color.fromRGB(255, 0, 0));
+        bootsMeta.setColor(Color.fromRGB(255, 255, 255));
         boots.setItemMeta(bootsMeta);
         stand.getEquipment().setChestplate(chestplate);
         stand.getEquipment().setLeggings(leggings);
@@ -63,13 +58,10 @@ public class PresentGiver extends Machine {
         }
 
         if (event.getRightClicked().equals(stand)) {
-            if(GreedyGhosts.getInstance().getGameManager().getCurrentState() instanceof IngameState state) {
-                state.onGiverClicked(event.getPlayer());
-            }
+            PluginCore.getInstance().getScreens().open(event.getPlayer(), 5);
             event.setCancelled(true);
         }
     }
-
     @Override
     public void destroy() {
         final var stand = (ArmorStand) location.getWorld().getEntity(uniqueId);

@@ -1,8 +1,8 @@
-package de.badgames.elfhunt.game.team;
+package com.liphium.greedyghosts.game.team;
 
-import de.badgames.elfhunt.game.GameManager;
-import de.badgames.elfhunt.game.team.impl.FarmerTeam;
-import de.badgames.elfhunt.game.team.impl.GhostTeam;
+import com.liphium.greedyghosts.game.GameManager;
+import com.liphium.greedyghosts.game.team.impl.FarmerTeam;
+import com.liphium.greedyghosts.game.team.impl.GhostTeam;
 import de.badgames.gameCore.team.ITeamManager;
 import de.badgames.gameCore.team.Team;
 import de.badgames.prefix.api.PrefixApi;

@@ -1,9 +1,9 @@
-package de.badgames.elfhunt.game;
+package com.liphium.greedyghosts.game;
 
 import de.badgames.cloudhelper.CloudHelper;
-import de.badgames.elfhunt.GreedyGhosts;
-import de.badgames.elfhunt.game.state.IngameState;
-import de.badgames.elfhunt.game.team.TeamManager;
+import com.liphium.greedyghosts.GreedyGhosts;
+import com.liphium.greedyghosts.game.state.IngameState;
+import com.liphium.greedyghosts.game.team.TeamManager;
 import de.badgames.gameCore.GameState;
 import de.badgames.gameCore.IGameManager;
 import de.badgames.gameCore.events.GameMapChangeEvent;

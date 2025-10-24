@@ -1,6 +1,6 @@
-package de.badgames.elfhunt.listener.machines.impl;
+package com.liphium.greedyghosts.listener.machines.impl;
 
-import de.badgames.elfhunt.listener.machines.Machine;
+import com.liphium.greedyghosts.listener.machines.Machine;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;

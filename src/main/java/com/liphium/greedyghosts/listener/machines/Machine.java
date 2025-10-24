@@ -1,4 +1,4 @@
-package de.badgames.elfhunt.listener.machines;
+package com.liphium.greedyghosts.listener.machines;
 
 import lombok.Getter;
 import org.bukkit.Location;

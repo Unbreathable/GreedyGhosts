@@ -1,6 +1,6 @@
 name: GreedyGhosts
 version: '${tag}'
-main: de.badgames.elfhunt.GreedyGhosts
+main: com.liphium.greedyghosts.GreedyGhosts
 api-version: '1.21.8'
 authors: [Presti, Unbreathable]
 load: POSTWORLD

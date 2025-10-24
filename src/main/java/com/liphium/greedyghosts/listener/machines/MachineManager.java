@@ -1,7 +1,7 @@
-package de.badgames.elfhunt.listener.machines;
+package com.liphium.greedyghosts.listener.machines;
 
-import de.badgames.elfhunt.GreedyGhosts;
-import de.badgames.elfhunt.listener.machines.impl.*;
+import com.liphium.greedyghosts.GreedyGhosts;
+import com.liphium.greedyghosts.listener.machines.impl.*;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -77,8 +77,6 @@ public class MachineManager {
     public Machine newMachineByLocation(String name, Location location) {
         return switch (name) {
             case "CoinDropper" -> new CoinDropper(location, false);
-            case "PresentReceiver" -> new PresentReceiver(location);
-            case "PresentGiver" -> new PresentGiver(location);
             case "ItemShop" -> new ItemShop(location);
             default -> null;
         };
@@ -94,7 +92,6 @@ public class MachineManager {
             case Material.TARGET ->  new ItemDropper(location, "Arrow", NamedTextColor.RED, new ItemStack(Material.ARROW), 30);
             case Material.BEACON ->  new ItemDropper(location, "Golden apple", NamedTextColor.GOLD, new ItemStack(Material.GOLDEN_APPLE), 30);
             case Material.REDSTONE_LAMP -> new RocketDropper(location);
-            case Material.BREWING_STAND -> new Brewer(location);
             default -> null;
         };
     }

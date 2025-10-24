@@ -1,6 +1,6 @@
-package de.badgames.elfhunt.listener;
+package com.liphium.greedyghosts.listener;
 
-import de.badgames.elfhunt.GreedyGhosts;
+import com.liphium.greedyghosts.GreedyGhosts;
 import de.badgames.gameCore.team.Team;
 import io.papermc.paper.event.player.AsyncChatEvent;
 import net.kyori.adventure.text.Component;

@@ -1,11 +1,11 @@
-package de.badgames.elfhunt;
+package com.liphium.greedyghosts;
 
-import de.badgames.elfhunt.game.GameManager;
-import de.badgames.elfhunt.listener.ChatListener;
-import de.badgames.elfhunt.listener.JoinQuitListener;
-import de.badgames.elfhunt.listener.machines.MachineManager;
-import de.badgames.elfhunt.screens.BrewingScreen;
-import de.badgames.elfhunt.screens.ItemShopScreen;
+import com.liphium.greedyghosts.game.GameManager;
+import com.liphium.greedyghosts.listener.ChatListener;
+import com.liphium.greedyghosts.listener.JoinQuitListener;
+import com.liphium.greedyghosts.listener.machines.MachineManager;
+import com.liphium.greedyghosts.screens.ItemShopScreen;
+import com.liphium.greedyghosts.screens.KitSelectionScreen;
 import de.badgames.cloudhelper.CloudHelper;
 import de.badgames.shared.SharedGame;
 import de.badgames.gameCore.map.GenericMap;
@@ -25,8 +25,9 @@ import org.bukkit.plugin.java.JavaPlugin;
 import java.util.List;
 
 public final class GreedyGhosts extends JavaPlugin {
-    public static final Component PREFIX = Component.text("Greedy Ghosts", NamedTextColor.GOLD).appendSpace()
-            .append(Component.text("→", NamedTextColor.YELLOW).appendSpace());
+    public static final Component PREFIX = Component.text("[", NamedTextColor.DARK_GRAY)
+            .append(Component.text("Greedy Ghosts", NamedTextColor.GOLD))
+            .append(Component.text("]", NamedTextColor.DARK_GRAY)).appendSpace();
 
     @Getter
     private static GreedyGhosts instance;
@@ -65,7 +66,13 @@ public final class GreedyGhosts extends JavaPlugin {
 
         SharedGame.init(instance, PREFIX, gameManager, List.of(), "greedyghosts");
 
-        PluginCore.getInstance().getScreens().register(new TeamSelectionScreen<>(gameManager), new BrewingScreen(), new ItemShopScreen(), new MapSelectionScreen<>(PREFIX, gameManager), new AchievementScreen("eh"));
+        PluginCore.getInstance().getScreens().register(
+                new TeamSelectionScreen<>(gameManager),
+                new KitSelectionScreen(),
+                new ItemShopScreen(),
+                new MapSelectionScreen<>(PREFIX, gameManager),
+                new AchievementScreen("eh")
+        );
     }
 
     @Override

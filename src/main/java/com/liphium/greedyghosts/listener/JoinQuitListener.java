@@ -1,6 +1,6 @@
-package de.badgames.elfhunt.listener;
+package com.liphium.greedyghosts.listener;
 
-import de.badgames.elfhunt.GreedyGhosts;
+import com.liphium.greedyghosts.GreedyGhosts;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
