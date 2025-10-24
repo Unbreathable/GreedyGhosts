@@ -11,7 +11,6 @@ import de.badgames.gameCore.map.GenericMap;
 import de.badgames.gameCore.team.Team;
 import de.badgames.shared.util.PlayerUtil;
 import de.badgames.pluginCore.util.TimeFormatter;
-import de.badgames.pluginCore.PluginCore;
 import de.badgames.pluginCore.util.ConfigUtil;
 import de.badgames.pluginCore.util.ItemStackBuilder;
 import de.badgames.elfhunt.GreedyGhosts;
@@ -19,11 +18,10 @@ import de.badgames.elfhunt.game.team.impl.GhostTeam;
 import de.badgames.elfhunt.game.team.impl.FarmerTeam;
 import de.badgames.elfhunt.listener.machines.impl.PresentReceiver;
 import de.badgames.pluginCore.util.Messages;
-import me.catcoder.sidebar.ProtocolSidebar;
-import me.catcoder.sidebar.Sidebar;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
+import net.kyori.adventure.title.Title;
 import org.bukkit.*;
 import org.bukkit.block.BlockFace;
 import org.bukkit.entity.*;
@@ -47,75 +45,35 @@ public class IngameState extends GameState {
 
     private Runnable runnable;
 
-    public Sidebar<Component> scoreboard;
+    // The minecraft ingame end and start times for the cycle to end in a sunrise
+    final int START_TIME = 13000;
+    final int END_TIME = 23000;
+
+    final int RESPAWN_DELAY = 10; // In seconds
+
+    // All locations for the map
+    final String SPECTATOR_LOCATION = "Spectators";
+    final String CENTER_LOCATION = "Center";
+    final String FARMER_SPAWN = "Farmers";
 
     final long MAX_GAME_TIME;
     long currentGameTime = 0;
-    int maxPresents = 0;
 
-    private int presentsLeft = 0;
+    int maxSnacks = 0;
+    private int snacksLeft = 0;
+
     /**
      * Map with the format NPC Name - NPC Instance
      */
     private final HashMap<String, PresentReceiver> receivers = new HashMap<>();
     private final HashMap<Location, Boolean> placedBlocks = new HashMap<>();
 
-    /**
-     * Map with format Player - NPC Name
-     */
-    private final HashMap<Player, String> currentDelivery = new HashMap<>();
+    // Map with Player -> Respawn timer
+    private final HashMap<Player, Integer> currentRespawnTimer = new HashMap<>();
 
     public IngameState() {
         super("In game", 30);
         MAX_GAME_TIME = Duration.ofMinutes(NumberConversions.toInt(ConfigUtil.get("game.time"))).getSeconds() * 20;
-        scoreboard = ProtocolSidebar
-                .newAdventureSidebar(Component.text("Elfhunt", NamedTextColor.GREEN, TextDecoration.BOLD), GreedyGhosts.getInstance());
-
-        scoreboard.addLine(Component.text("                                ", NamedTextColor.DARK_GRAY, TextDecoration.STRIKETHROUGH));
-
-        scoreboard.addBlankLine();
-
-        scoreboard.addLine(Component.space().append(Component.text("⌛", PluginCore.getPrimaryColor())).appendSpace()
-                .append(Component.text("❙", NamedTextColor.DARK_GRAY, TextDecoration.BOLD))
-                .appendSpace()
-                .append(Component.text("Remaining Time", NamedTextColor.GRAY)));
-        scoreboard.addUpdatableLine(player -> Component.space().append(Component.text("◆", PluginCore.getSecondaryColor())).appendSpace().append(Component.text("⏵⏵⏵", NamedTextColor.DARK_GRAY))
-                .appendSpace().append(Component.text(TimeFormatter.formatTicks(currentGameTime), NamedTextColor.RED, TextDecoration.BOLD)).appendSpace()
-                .append(Component.text("left!", PluginCore.getPrimaryColor())));
-
-
-        scoreboard.addBlankLine();
-
-        scoreboard.addLine(Component.space().append(Component.text("✉", PluginCore.getPrimaryColor())).appendSpace()
-                .append(Component.text("❙", NamedTextColor.DARK_GRAY, TextDecoration.BOLD))
-                .appendSpace()
-                .append(Component.text("Remaining Presents", NamedTextColor.GRAY)));
-
-        scoreboard.addUpdatableLine(player -> Component.space().append(Component.text("◆", PluginCore.getSecondaryColor())).appendSpace().append(Component.text("⏵⏵⏵", NamedTextColor.DARK_GRAY))
-                .appendSpace().append(Component.text(presentsLeft, NamedTextColor.GREEN, TextDecoration.BOLD))
-                .append(Component.text("/", NamedTextColor.GRAY))
-                .append(Component.text(maxPresents, NamedTextColor.GREEN, TextDecoration.BOLD)).appendSpace()
-                .append(Component.text("remaining!", PluginCore.getPrimaryColor())));
-
-        scoreboard.addBlankLine();
-
-        scoreboard.addLine(Component.text("                                ", NamedTextColor.DARK_GRAY, TextDecoration.STRIKETHROUGH));
-
-        scoreboard.addBlankLine();
-
-        scoreboard.addLine(Component.space().append(Component.text("❤", PluginCore.getPrimaryColor())).appendSpace()
-                .append(Component.text("❙", NamedTextColor.DARK_GRAY, TextDecoration.BOLD))
-                .appendSpace()
-                .append(Component.text("Discord", NamedTextColor.GRAY)));
-        scoreboard.addLine(Component.space().append(Component.text("◆", PluginCore.getSecondaryColor())).appendSpace().append(Component.text("⏵⏵⏵", NamedTextColor.DARK_GRAY))
-                .appendSpace().append(Component.text("dc", PluginCore.getSecondaryColor(), TextDecoration.BOLD))
-                .append(Component.text(".", NamedTextColor.GRAY))
-                .append(Component.text("badgames", PluginCore.getPrimaryColor(), TextDecoration.BOLD))
-                .append(Component.text(".", NamedTextColor.GRAY))
-                .append(Component.text("de", PluginCore.getSecondaryColor(), TextDecoration.BOLD)));
-        scoreboard.addBlankLine();
-
-        scoreboard.updateLinesPeriodically(5, 10);
     }
 
     @Override
@@ -133,16 +91,16 @@ public class IngameState extends GameState {
 
         // Change the amount of presents based on team size
         final var hunterSize = GreedyGhosts.getInstance().getGameManager().getTeamManager().getTeam("Ghosts").getPlayers().size();
-        maxPresents = hunterSize * 4; // 4 per member of the team seems fine for 15 minutes
-        presentsLeft = maxPresents;
+        maxSnacks = hunterSize * 4; // 4 per member of the team seems fine for 15 minutes
+        snacksLeft = maxSnacks;
 
         final GenericMap map = GreedyGhosts.getInstance().getGameManager().getMap();
         World world = Bukkit.getWorld(map.getWorldName());
 
+        assert world != null;
         world.setDifficulty(Difficulty.NORMAL);
-        world.setTime(18000);
         world.setThundering(false);
-        world.setStorm(true);
+        world.setStorm(false);
         world.setGameRule(GameRule.DO_DAYLIGHT_CYCLE, false);
         world.setGameRule(GameRule.DO_WEATHER_CYCLE, false);
         world.setGameRule(GameRule.DO_MOB_SPAWNING, false);
@@ -152,10 +110,9 @@ public class IngameState extends GameState {
         world.setGameRule(GameRule.NATURAL_REGENERATION, false);
 
         // Generate the labyrinth
-        generateLabyrinth(GreedyGhosts.getInstance().getGameManager().getMapLocation("Center"), GreedyGhosts.getInstance().getGameManager().getMap().getCornerA());
+        generateLabyrinth(GreedyGhosts.getInstance().getGameManager().getMapLocation(CENTER_LOCATION), GreedyGhosts.getInstance().getGameManager().getMap().getCornerA());
 
         for (Player all : Bukkit.getOnlinePlayers()) {
-            scoreboard.addViewer(all);
             PlayerUtil.clearPlayerMetaData(all);
         }
 
@@ -165,24 +122,15 @@ public class IngameState extends GameState {
             for (Player player : team.getPlayers()) {
                 player.getInventory().clear();
                 player.setHealth(20);
-                team.giveKit(player, true);
+                teleportToProperLocation(player);
             }
 
+            // Apply invisibility to the ghosts
             if(team instanceof GhostTeam) {
                 for(Player player : team.getPlayers()) {
-                    player.addPotionEffect(new PotionEffect(PotionEffectType.INVISIBILITY, 10000, 1, false, false));
+                    player.addPotionEffect(new PotionEffect(PotionEffectType.INVISIBILITY, 99999, 1, false, false));
                 }
             }
-        }
-
-        // Give every single present receiver a random name
-        for (PresentReceiver receiver : GreedyGhosts.getInstance().getMachineManager().getMachines(PresentReceiver.class)) {
-            var name = PresentReceiver.randomName();
-            while (receivers.containsKey(name)) {
-                name = PresentReceiver.randomName();
-            }
-            receiver.assignName(name);
-            receivers.put(name, receiver);
         }
 
         currentGameTime = MAX_GAME_TIME;
@@ -204,22 +152,81 @@ public class IngameState extends GameState {
                         return;
                     }
 
-                    Messages.actionBar(Component.text(presentsLeft, NamedTextColor.GREEN)
+                    // Decrement all respawn timers and teleport players
+                    handleRespawnTimers();
+
+                    // Adjust the ingame time for the night cycle
+                    final double progress = (double) currentGameTime / MAX_GAME_TIME;
+                    final int ingameTime = START_TIME + (int) ((END_TIME - START_TIME) * progress);
+                    world.setTime(ingameTime);
+
+                    // Send action bar to remind of missing snacks
+                    Messages.actionBar(Component.text(snacksLeft, NamedTextColor.GOLD)
                             .append(Component.text("/", NamedTextColor.GRAY))
-                            .append(Component.text(maxPresents, NamedTextColor.GREEN))
+                            .append(Component.text(maxSnacks, NamedTextColor.GOLD))
                             .appendSpace()
-                            .append(Component.text("remaining", NamedTextColor.GRAY))
+                            .append(Component.text("remaining", NamedTextColor.YELLOW))
                             .appendSpace()
                             .append(Component.text("|", NamedTextColor.DARK_GRAY))
                             .appendSpace()
-                            .append(Component.text(TimeFormatter.formatTicks(currentGameTime)).appendSpace()
-                                    .append(Component.text("left", NamedTextColor.GRAY)))
+                            .append(Component.text(TimeFormatter.formatTicks(currentGameTime), NamedTextColor.GOLD).appendSpace()
+                                    .append(Component.text("left", NamedTextColor.YELLOW)))
                     );
                 }
 
                 currentGameTime--;
             }
         });
+    }
+
+    /**
+     * This method decrements all respawn timers and makes sure players are teleported back to their respective locations
+     * after the timer is up.
+     */
+    private void handleRespawnTimers() {
+        for(var entry : currentRespawnTimer.entrySet()) {
+            final var player = entry.getKey();
+
+            // Respawn in case it would hit zero
+            if(entry.getValue() - 1 <= 0) {
+                player.clearTitle();
+                player.setGameMode(GameMode.SURVIVAL);
+                currentRespawnTimer.remove(player);
+
+                teleportToProperLocation(player);
+                return;
+            }
+
+            // Show them the timer
+            player.showTitle(Title.title(
+                    // Title
+                    Component.text("Respawning in", NamedTextColor.YELLOW),
+
+                    // Subtitle
+                    Component.text(entry.getValue() - 1, NamedTextColor.GOLD)
+                            .append(Component.text("...", NamedTextColor.GRAY)),
+
+                    // Make sure the title appears instantly
+                    Title.Times.times(Duration.ZERO, Duration.ofSeconds(3), Duration.ZERO)
+            ));
+
+            // Decrement the timer
+            currentRespawnTimer.put(player, entry.getValue() - 1);
+        }
+    }
+
+    /**
+     * Teleport a player to their proper location after respawn or at game start.
+     * @param player The player
+     */
+    private void teleportToProperLocation(Player player) {
+        final var team = GreedyGhosts.getInstance().getGameManager().getTeamManager().getTeam(player);
+        if(team instanceof GhostTeam) {
+            // TODO: Clockwise teleports
+            player.teleport(Objects.requireNonNull(GreedyGhosts.getInstance().getGameManager().getMapLocation(CENTER_LOCATION)));
+        } else {
+            player.teleport(Objects.requireNonNull(GreedyGhosts.getInstance().getGameManager().getMapLocation(FARMER_SPAWN)));
+        }
     }
 
     private void generateLabyrinth(Location center, Location cornerA) {
@@ -325,90 +332,6 @@ public class IngameState extends GameState {
 
         if (event.getRightClicked().getType().equals(EntityType.ARMOR_STAND)) {
             event.setCancelled(true);
-        }
-    }
-
-    private final ArrayList<String> messages = new ArrayList<>(List.of(
-            "§7How dare you deliver this to me? This present is for §a%player%§7!",
-            "§7Are you too stupid to read? The name on the present clearly says §a%player%§7!",
-            "§7Why are you giving me this? It’s clearly for §a%player%§7!",
-            "§7I don’t want this! This belongs to §a%player%§7!",
-            "§7Is there something wrong with your eyes? This is meant for §a%player%§7!",
-            "§7I’m not §a%player%§7! Take this to the right person!",
-            "§7Seriously? This is for §a%player%§7, not me!",
-            "§7You’ve got the wrong person! This is for §a%player%§7!",
-            "§7Don’t waste my time! This clearly says it’s for §a%player%§7!",
-            "§7I think you’re lost — this is meant for §a%player%§7!",
-            "§7Stop being careless! This is for §a%player%§7, not me!",
-            "§7Do I look like §a%player%§7 to you? Are you blind?",
-            "§7This isn’t mine — it’s for §a%player%§7!",
-            "§7Take a closer look. This belongs to §a%player%§7!",
-            "§7How can you mix this up? It’s clearly for §a%player%§7!",
-            "§7Not my name on the present—it’s §a%player%§7’s!",
-            "§7This isn’t funny. Give this to §a%player%§7!",
-            "§7Read the label! It’s for §a%player%§7!",
-            "§7Stop bothering me and give this to §a%player%§7!",
-            "§7I’m not the recipient! This is meant for §a%player%§7!",
-            "§7You’ve made a mistake—this belongs to §a%player%§7!",
-            "§7Clearly, you didn’t read the tag. This is for §a%player%§7!"
-    ));
-
-
-    public void onReceiverClicked(Player player, String name) {
-        if (GreedyGhosts.getInstance().getGameManager().getTeamManager().getTeam(player) instanceof GhostTeam team) {
-
-            // Make sure the guy actually has a present
-            if (!currentDelivery.containsKey(player)) {
-                player.sendMessage(Component.text("§f§l" + name + "§7: You don't even have a present! Get one from §cSanta §7first."));
-                return;
-            }
-
-            if (Objects.equals(currentDelivery.get(player), name)) {
-                player.getInventory().remove(Material.LEATHER_HORSE_ARMOR);
-                player.getInventory().remove(Material.COAL);
-                presentsLeft -= 1;
-                currentDelivery.remove(player);
-
-                // Send an announcement that a present has been delivered
-                Bukkit.broadcast(Component.text(" "));
-                Bukkit.broadcast(Component.text("§a§l" + player.getName() + " §7delivered a §apresent§7!"));
-                Bukkit.broadcast(Component.text(" "));
-
-                reduceMainHandItem(player, Material.LEATHER_HORSE_ARMOR);
-                reduceMainHandItem(player, Material.COAL);
-
-                XSound.ENTITY_EXPERIENCE_ORB_PICKUP.play(player, 0.7f, 1f);
-                XSound.ITEM_GOAT_HORN_SOUND_1.play(player.getLocation(), 0.5f, 1f);
-                // Check if the win condition for the elves is met
-                if (presentsLeft <= 0) {
-                    handleWin(team);
-                }
-            } else {
-                var message = messages.get(ThreadLocalRandom.current().nextInt(messages.size()));
-                message = message.replace("%player%", currentDelivery.get(player));
-                player.sendMessage(Component.text("§f§l" + name + "§7: " + message));
-            }
-        }
-    }
-
-    public void onGiverClicked(Player player) {
-        if (GreedyGhosts.getInstance().getGameManager().getTeamManager().getTeam(player) instanceof GhostTeam) {
-            if (currentDelivery.containsKey(player)) {
-                player.sendMessage(Component.text("§c§lSanta§7: I already gave you a present!"));
-                return;
-            }
-
-            // Get a random receiver to bring the present to
-            final var randomInt = ThreadLocalRandom.current().nextInt(receivers.size());
-            final var receiver = receivers.keySet().stream().toList().get(randomInt);
-
-            // Assign that receiver for the player
-            currentDelivery.put(player, receiver);
-            player.getInventory().addItem(new ItemStackBuilder(XMaterial.RED_WOOL)
-                    .withName(Component.text("Present", NamedTextColor.RED))
-                    .withLore(Component.text("For:", NamedTextColor.RED).appendSpace()
-                            .append(Component.text(receiver, NamedTextColor.GRAY))).buildStack());
-            player.sendMessage(Component.text("§c§lSanta§7: Bring this present to §c" + receiver + "§7!"));
         }
     }
 
@@ -550,9 +473,6 @@ public class IngameState extends GameState {
 
         event.getDrops().removeIf(x -> x.getType() == Material.LEATHER_HORSE_ARMOR);
 
-        // Make sure the player isn't still delivering
-        currentDelivery.remove(player);
-
         GreedyGhosts.getInstance().getTaskManager().inject(new Runnable() {
             int tickCount = 0;
 
@@ -572,18 +492,15 @@ public class IngameState extends GameState {
 
     @Override
     public void onRespawn(PlayerRespawnEvent event) {
-        final var team = GreedyGhosts.getInstance().getGameManager().getTeamManager().getTeam(event.getPlayer());
-        if (team instanceof FarmerTeam) {
-            event.setRespawnLocation(Objects.requireNonNull(GreedyGhosts.getInstance().getGameManager().getMapLocation("Center")));
-        } else {
-            event.setRespawnLocation(Objects.requireNonNull(GreedyGhosts.getInstance().getGameManager().getMapLocation("Center")));
-        }
+        event.setRespawnLocation(Objects.requireNonNull(GreedyGhosts.getInstance().getGameManager().getMapLocation(SPECTATOR_LOCATION)));
+        event.getPlayer().setGameMode(GameMode.SPECTATOR);
+
+        currentRespawnTimer.put(event.getPlayer(), RESPAWN_DELAY);
     }
 
     public void handleWin(Team team) {
         team.handleWin();
 
-        scoreboard.destroy();
         GreedyGhosts.getInstance().getTaskManager().uninject(runnable);
         GreedyGhosts.getInstance().getGameManager().setCurrentState(new EndState(GreedyGhosts.getInstance(), GreedyGhosts.getInstance().getGameManager(), GreedyGhosts.getInstance().getTaskManager(),
                 Component.text("Greedy Ghosts", NamedTextColor.GOLD, TextDecoration.BOLD), GreedyGhosts.PREFIX,
@@ -610,7 +527,6 @@ public class IngameState extends GameState {
     @Override
     public void join(Player player) {
         super.join(player);
-        scoreboard.addViewer(player);
         player.setGameMode(GameMode.SPECTATOR);
 
         for (Player all : Bukkit.getOnlinePlayers()) {
@@ -627,7 +543,6 @@ public class IngameState extends GameState {
 
     @Override
     public void quit(Player player) {
-        scoreboard.removeViewer(player);
         Team team = GreedyGhosts.getInstance().getGameManager().getTeamManager().getTeam(player);
         if (team == null) return;
         team.removePlayer(player);
