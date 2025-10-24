@@ -1,7 +1,5 @@
 package de.badgames.elfhunt.game.state;
 
-import com.cryptomorin.xseries.XMaterial;
-import com.cryptomorin.xseries.XSound;
 import de.badgames.cloudhelper.CloudHelper;
 import de.badgames.elfhunt.util.LabyrinthGenerator;
 import de.badgames.gameCore.GameState;
@@ -16,7 +14,6 @@ import de.badgames.pluginCore.util.ItemStackBuilder;
 import de.badgames.elfhunt.GreedyGhosts;
 import de.badgames.elfhunt.game.team.impl.GhostTeam;
 import de.badgames.elfhunt.game.team.impl.FarmerTeam;
-import de.badgames.elfhunt.listener.machines.impl.PresentReceiver;
 import de.badgames.pluginCore.util.Messages;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -38,10 +35,10 @@ import org.bukkit.util.Vector;
 
 import java.time.Duration;
 import java.util.*;
-import java.util.concurrent.ThreadLocalRandom;
 
 public class IngameState extends GameState {
     private final ArrayList<DroppableTrap> traps = new ArrayList<>();
+    private final BlockFace[] wallDirections = new BlockFace[]{BlockFace.NORTH, BlockFace.EAST, BlockFace.SOUTH, BlockFace.WEST};
 
     private Runnable runnable;
 
@@ -62,10 +59,20 @@ public class IngameState extends GameState {
     int maxSnacks = 0;
     private int snacksLeft = 0;
 
+    public record HighwayWall(LabyrinthGenerator.Section wallBefore, LabyrinthGenerator.Section wall, BlockFace direction) {}
+
+    // Outside walls of the highway wall
+    private final ArrayList<HighwayWall> highwayWalls = new ArrayList<>();
+
+    // Spawn locations for all walls (in the directions)
+    private final HashMap<BlockFace, Location> spawnLocations = new HashMap<>();
+
+    // Current spawn direction of the ghosts (this is an index for wallDirections)
+    private int currentSpawnDirection = -1;
+
     /**
      * Map with the format NPC Name - NPC Instance
      */
-    private final HashMap<String, PresentReceiver> receivers = new HashMap<>();
     private final HashMap<Location, Boolean> placedBlocks = new HashMap<>();
 
     // Map with Player -> Respawn timer
@@ -222,8 +229,12 @@ public class IngameState extends GameState {
     private void teleportToProperLocation(Player player) {
         final var team = GreedyGhosts.getInstance().getGameManager().getTeamManager().getTeam(player);
         if(team instanceof GhostTeam) {
-            // TODO: Clockwise teleports
-            player.teleport(Objects.requireNonNull(GreedyGhosts.getInstance().getGameManager().getMapLocation(CENTER_LOCATION)));
+            currentSpawnDirection++;
+            if(currentSpawnDirection >= wallDirections.length) {
+                currentSpawnDirection = 0;
+            }
+
+            player.teleport(spawnLocations.get(wallDirections[currentSpawnDirection]));
         } else {
             player.teleport(Objects.requireNonNull(GreedyGhosts.getInstance().getGameManager().getMapLocation(FARMER_SPAWN)));
         }
@@ -232,9 +243,24 @@ public class IngameState extends GameState {
     private void generateLabyrinth(Location center, Location cornerA) {
         final var diffX = Math.abs(cornerA.getX() - center.getX());
 
-        for (var face : new BlockFace[]{BlockFace.NORTH, BlockFace.EAST, BlockFace.SOUTH, BlockFace.WEST}) {
+        for (var face : wallDirections) {
             final var walls = generateSectionsForSide(center, face, (int) diffX);
+
+            // Add the last section to the highway walls
+            final var highwaySection = walls.removeLast();
+            highwayWalls.add(new HighwayWall(walls.getLast(), highwaySection, face));
+
             LabyrinthGenerator.generateLabyrinth(walls, face);
+        }
+
+        // Place the highway walls and set the spawns
+        for(final var wall : highwayWalls) {
+            final var center1 = getCenter(wall.wall.start(), wall.wallBefore.start());
+            final var center2 = getCenter(wall.wall.end(), wall.wallBefore.end());
+            final var wallSpawn = getCenter(center1, center2);
+
+            wall.wall.place(5, Material.STONE, new ArrayList<>());
+            spawnLocations.put(wall.direction, wallSpawn);
         }
     }
 
@@ -244,7 +270,7 @@ public class IngameState extends GameState {
      * @return
      */
     private List<LabyrinthGenerator.Section> generateSectionsForSide(Location base, BlockFace towards, int radius) {
-        final var wallAmount = 6;
+        final var wallAmount = 7;
         var wallBase = base.getBlock().getRelative(towards, radius).getLocation().toCenterLocation();
         final var directions = getTwoDirections(towards);
         assert directions != null && directions.length == 2;
@@ -259,6 +285,57 @@ public class IngameState extends GameState {
         }
 
         return walls;
+    }
+
+    /**
+     * Get the center location between two locations.
+     * @param loc1 The first location
+     * @param loc2 The second location
+     * @return The center location between the two
+     */
+    private Location getCenter(Location loc1, Location loc2) {
+        return new Location(
+                loc1.getWorld(),
+                (loc1.getX() + loc2.getX()) / 2,
+                (loc1.getY() + loc2.getY()) / 2,
+                (loc1.getZ() + loc2.getZ()) / 2
+        );
+    }
+
+    /**
+     * Check if a player is inside the center walls (in the labyrinth, not on the highway ring).
+     * @param player The player to check
+     * @return true if the player is inside the center walls, false otherwise
+     */
+    private boolean isInsideCenterWalls(Player player) {
+        final Location loc = player.getLocation();
+        final Location center = GreedyGhosts.getInstance().getGameManager().getMapLocation(CENTER_LOCATION);
+
+        for (HighwayWall highwayWall : highwayWalls) {
+            final var wall = highwayWall.wallBefore();
+            final boolean isHorizontal = Math.abs(wall.start().getX() - wall.end().getX()) > Math.abs(wall.start().getZ() - wall.end().getZ());
+
+            if (isHorizontal) {
+                double minX = Math.min(wall.start().getX(), wall.end().getX());
+                double maxX = Math.max(wall.start().getX(), wall.end().getX());
+                if (loc.getX() >= minX && loc.getX() <= maxX) {
+                    if ((loc.getZ() < wall.start().getZ() && center.getZ() > wall.start().getZ()) ||
+                        (loc.getZ() > wall.start().getZ() && center.getZ() < wall.start().getZ())) {
+                        return false;
+                    }
+                }
+            } else {
+                double minZ = Math.min(wall.start().getZ(), wall.end().getZ());
+                double maxZ = Math.max(wall.start().getZ(), wall.end().getZ());
+                if (loc.getZ() >= minZ && loc.getZ() <= maxZ) {
+                    if ((loc.getX() < wall.start().getX() && center.getX() > wall.start().getX()) ||
+                        (loc.getX() > wall.start().getX() && center.getX() < wall.start().getX())) {
+                        return false;
+                    }
+                }
+            }
+        }
+        return true;
     }
 
     /**
@@ -342,6 +419,20 @@ public class IngameState extends GameState {
         }
 
         Team team = GreedyGhosts.getInstance().getGameManager().getTeamManager().getTeam(event.getPlayer());
+        var inCenter = isInsideCenterWalls(event.getPlayer());
+
+        // Movement handling for the ghosts
+        if(team instanceof GhostTeam) {
+
+            // Give them speed if they're inside the highway walls
+            if(inCenter) {
+                if(!event.getPlayer().hasPotionEffect(PotionEffectType.SPEED)) {
+                    event.getPlayer().addPotionEffect(new PotionEffect(PotionEffectType.SPEED, Integer.MAX_VALUE, 2, false, false));
+                }
+            } else {
+                event.getPlayer().removePotionEffect(PotionEffectType.SPEED);
+            }
+        }
 
         // Check if they wandered into a trap
         ArrayList<DroppableTrap> toRemove = new ArrayList<>();

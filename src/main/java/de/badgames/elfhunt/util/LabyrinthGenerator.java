@@ -71,7 +71,7 @@ public class LabyrinthGenerator {
         /**
          * Places blocks along a wall section from start to end
          */
-        private void place(int height, Material material, List<Location> entrances) {
+        public void place(int height, Material material, List<Location> entrances) {
 
             // Calculate the direction vector between start and end
             Vector direction = end.toVector().subtract(start.toVector());
@@ -137,7 +137,7 @@ public class LabyrinthGenerator {
      */
     public static void generateLabyrinth(List<Section> walls, BlockFace towards) {
         final Random rand = new Random();
-        final var height = 4;
+        final var height = 5;
 
         // Generate the entrances
         final List<List<Location>> entrances = new ArrayList<>(); // Section id -> Entrances
