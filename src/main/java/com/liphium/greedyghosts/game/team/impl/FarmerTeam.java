@@ -44,7 +44,7 @@ public class FarmerTeam extends Team {
                     .append(Component.text("ghosts", NamedTextColor.WHITE, TextDecoration.BOLD)).appendSpace()
                     .append(Component.text("from stealing", NamedTextColor.GRAY)));
             player.sendMessage(Component.text("all your precious", NamedTextColor.GRAY).appendSpace()
-                    .append(Component.text("snacks", NamedTextColor.YELLOW)).appendSpace()
+                    .append(Component.text("snacks", NamedTextColor.YELLOW))
                     .append(Component.text("!", NamedTextColor.GRAY)));
             player.sendMessage(Component.text(" "));
 

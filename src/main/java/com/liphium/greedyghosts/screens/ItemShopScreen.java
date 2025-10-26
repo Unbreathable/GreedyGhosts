@@ -18,7 +18,7 @@ public class ItemShopScreen extends CScreen {
     public static final int SCREEN_ID = 4;
 
     public ItemShopScreen() {
-        super(SCREEN_ID, Component.text("Kit selection", NamedTextColor.GOLD, TextDecoration.BOLD), 1, true);
+        super(SCREEN_ID, Component.text("Item shop", NamedTextColor.GOLD, TextDecoration.BOLD), 1, true);
 
         background();
 

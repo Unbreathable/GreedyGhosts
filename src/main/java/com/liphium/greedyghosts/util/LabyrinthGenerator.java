@@ -161,22 +161,15 @@ public class LabyrinthGenerator {
                     }
                 }
                 if(!found) {
-                    Bukkit.broadcast(Component.text("Entrance placed at" + entranceLocation));
                     generatedEntrances.add(entranceLocation);
                     generalEntrances.add(entranceLocation);
                 }
                 tries++;
             }
 
-            if(tries >= 50) {
-                Bukkit.broadcast(Component.text("Not all entrances could be placed... Continuing..."));
-            }
-
             entrances.add(generatedEntrances);
             entrancesToGenerate++;
         }
-
-        Bukkit.broadcast(Component.text("Finished entrances."));
 
         // Generate all the walls
         final List<List<Location>> innerWalls = new ArrayList<>(walls.size()); // Section id -> Wall location
@@ -230,10 +223,6 @@ public class LabyrinthGenerator {
                 // Place the wall
                 wall.placeUntil(innerWallLocation, walls.get(wallToPlaceIn + 1), towards, Material.STONE_BRICKS, height);
             }
-        }
-
-        if(tries >= 50) {
-            Bukkit.broadcast(Component.text("Not all walls could be placed... Continuing..."));
         }
 
         /*

@@ -74,6 +74,12 @@ public class IngameState extends GameState {
     // Current spawn direction of the ghosts (this is an index for wallDirections)
     private int currentSpawnDirection = -1;
 
+    // Ticks since a player received velocity from the kit protection
+    private final HashMap<Player, Integer> boostProtection = new HashMap<>();
+
+    // If a kit has already been given to a ghost
+    private final HashMap<Player, Boolean> kitGiven = new HashMap<>();
+
     /**
      * Map with the format NPC Name - NPC Instance
      */
@@ -128,6 +134,7 @@ public class IngameState extends GameState {
 
         for (Player all : Bukkit.getOnlinePlayers()) {
             PlayerUtil.clearPlayerMetaData(all);
+            all.clearActivePotionEffects();
         }
 
         for (Team team : GreedyGhosts.getInstance().getGameManager().getTeamManager().getTeams()) {
@@ -174,7 +181,7 @@ public class IngameState extends GameState {
                     // Adjust the ingame time for the night cycle
                     final double progress = (double) currentGameTime / MAX_GAME_TIME;
                     final int ingameTime = START_TIME + (int) ((END_TIME - START_TIME) * progress);
-                    world.setTime(ingameTime);
+                    world.setFullTime(ingameTime);
 
                     // Send action bar to remind of missing snacks
                     Messages.actionBar(Component.text(snacksLeft, NamedTextColor.GOLD)
@@ -185,7 +192,7 @@ public class IngameState extends GameState {
                             .appendSpace()
                             .append(Component.text("|", NamedTextColor.DARK_GRAY))
                             .appendSpace()
-                            .append(Component.text(TimeFormatter.formatTicks(currentGameTime), NamedTextColor.GOLD).appendSpace()
+                            .append(Component.text(formatTicks(currentGameTime), NamedTextColor.GOLD).appendSpace()
                                     .append(Component.text("left", NamedTextColor.YELLOW)))
                     );
                 }
@@ -193,6 +200,13 @@ public class IngameState extends GameState {
                 currentGameTime--;
             }
         });
+    }
+
+    private String formatTicks(long ticks) {
+        long seconds = ticks / 20L;
+        long minutes = seconds / 60L;
+        seconds %= 60L;
+        return String.format("§6%02d§7:§6%02d", minutes, seconds);
     }
 
     // Called by the kit selection screen
@@ -295,7 +309,7 @@ public class IngameState extends GameState {
             final var center2 = getCenter(wall.wall.end(), wall.wallBefore.end());
             final var wallSpawn = getCenter(center1, center2);
 
-            wall.wall.place(5, Material.STONE, new ArrayList<>());
+            wall.wall.place(5, Material.BEDROCK, new ArrayList<>());
             spawnLocations.put(wall.direction, wallSpawn);
         }
     }
@@ -344,34 +358,14 @@ public class IngameState extends GameState {
      * @return true if the player is inside the center walls, false otherwise
      */
     private boolean isInsideCenterWalls(Player player) {
-        final Location loc = player.getLocation();
-        final Location center = GreedyGhosts.getInstance().getGameManager().getMapLocation(CENTER_LOCATION);
+        return isInRegion(player.getLocation(), highwayWalls.get(0).wallBefore().start(), highwayWalls.get(2).wallBefore().end());
+    }
 
-        for (HighwayWall highwayWall : highwayWalls) {
-            final var wall = highwayWall.wallBefore();
-            final boolean isHorizontal = Math.abs(wall.start().getX() - wall.end().getX()) > Math.abs(wall.start().getZ() - wall.end().getZ());
-
-            if (isHorizontal) {
-                double minX = Math.min(wall.start().getX(), wall.end().getX());
-                double maxX = Math.max(wall.start().getX(), wall.end().getX());
-                if (loc.getX() >= minX && loc.getX() <= maxX) {
-                    if ((loc.getZ() < wall.start().getZ() && center.getZ() > wall.start().getZ()) ||
-                        (loc.getZ() > wall.start().getZ() && center.getZ() < wall.start().getZ())) {
-                        return false;
-                    }
-                }
-            } else {
-                double minZ = Math.min(wall.start().getZ(), wall.end().getZ());
-                double maxZ = Math.max(wall.start().getZ(), wall.end().getZ());
-                if (loc.getZ() >= minZ && loc.getZ() <= maxZ) {
-                    if ((loc.getX() < wall.start().getX() && center.getX() > wall.start().getX()) ||
-                        (loc.getX() > wall.start().getX() && center.getX() < wall.start().getX())) {
-                        return false;
-                    }
-                }
-            }
-        }
-        return true;
+    private boolean isInRegion(Location source, Location bound1, Location bound2) {
+        return source.getX() >= Math.min(bound1.getX(), bound2.getX()) &&
+                source.getZ() >= Math.min(bound1.getZ(), bound2.getZ()) &&
+                source.getX() <= Math.max(bound1.getX(), bound2.getX()) &&
+                source.getZ() <= Math.max(bound1.getZ(), bound2.getZ());
     }
 
     /**
@@ -497,6 +491,13 @@ public class IngameState extends GameState {
             return;
         }
 
+        if(boostProtection.containsKey(event.getPlayer())) {
+            boostProtection.put(event.getPlayer(), boostProtection.get(event.getPlayer()) - 1);
+            if(boostProtection.get(event.getPlayer()) <= 0) {
+                boostProtection.remove(event.getPlayer());
+            }
+        }
+
         Team team = GreedyGhosts.getInstance().getGameManager().getTeamManager().getTeam(event.getPlayer());
         var inCenter = isInsideCenterWalls(event.getPlayer());
 
@@ -505,8 +506,10 @@ public class IngameState extends GameState {
 
             // Give them speed if they're inside the highway walls (but not in the center labyrinth)
             if(!inCenter) {
+                kitGiven.remove(event.getPlayer());
+
                 if(!event.getPlayer().hasPotionEffect(PotionEffectType.SPEED)) {
-                    event.getPlayer().addPotionEffect(new PotionEffect(PotionEffectType.SPEED, Integer.MAX_VALUE, 2, false, false));
+                    event.getPlayer().addPotionEffect(new PotionEffect(PotionEffectType.SPEED, Integer.MAX_VALUE, 10, false, false));
                     giveGhostInventory(event.getPlayer());
                 }
             } else {
@@ -514,11 +517,15 @@ public class IngameState extends GameState {
 
                 // Boost away in case they don't have a kit selected
                 if(!selectedKits.containsKey(event.getPlayer())) {
-                    final var movementVector = event.getTo().clone().subtract(event.getFrom()).toVector().normalize();
-                    event.getPlayer().setVelocity(movementVector.multiply(-2).setY(0.2));
-                    event.getPlayer().sendMessage(GreedyGhosts.PREFIX.append(Component.text("Please select a kit!", NamedTextColor.RED)));
+                    if(!boostProtection.containsKey(event.getPlayer())) {
+                        event.getPlayer().sendMessage(GreedyGhosts.PREFIX.append(Component.text("Please select a kit!", NamedTextColor.RED)));
+                        boostProtection.put(event.getPlayer(), 20);
+                    }
                 } else {
-                    selectedKits.get(event.getPlayer()).giveKit(event.getPlayer());
+                    if(!kitGiven.containsKey(event.getPlayer())) {
+                        selectedKits.get(event.getPlayer()).giveKit(event.getPlayer());
+                        kitGiven.put(event.getPlayer(), true);
+                    }
                 }
             }
         }
@@ -548,11 +555,13 @@ public class IngameState extends GameState {
     public void onDamageByEntity(EntityDamageByEntityEvent event) {
 
         // Make sure ghosts don't do any attack damage against farmers or each other
-        if(event.getCause() == EntityDamageEvent.DamageCause.ENTITY_ATTACK && event.getDamager() instanceof Player damager
-        && event.getEntity() instanceof Player) {
+        if((event.getCause() == EntityDamageEvent.DamageCause.ENTITY_ATTACK || event.getCause() == EntityDamageEvent.DamageCause.ENTITY_SWEEP_ATTACK) &&
+                event.getDamager() instanceof Player damager && event.getEntity() instanceof Player player) {
             final var team = GreedyGhosts.getInstance().getGameManager().getTeamManager().getTeam(damager);
             if(team instanceof GhostTeam) {
-                event.setCancelled(true);
+                event.setDamage(0);
+            } else {
+                player.addPotionEffect(new PotionEffect(PotionEffectType.GLOWING, 100, 1, false, false));
             }
         }
 
