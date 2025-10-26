@@ -13,12 +13,14 @@ import org.bukkit.inventory.ItemStack;
 
 public class KitSelectionScreen extends CScreen {
 
+    public static final int SCREEN_ID = 5;
+
     public KitSelectionScreen() {
-        super(4, Component.text("Kit selection", NamedTextColor.GOLD, TextDecoration.BOLD), 1, true);
+        super(SCREEN_ID, Component.text("Kit selection", NamedTextColor.GOLD, TextDecoration.BOLD), 1, true);
 
         background();
 
-        // 9 10 11 12 13 14 15 16 17
+        // 0 1 2 3 4 5 6 7 8
         int count = 0;
         for (HotbarKit kit : HotbarKit.kits) {
 
@@ -28,7 +30,7 @@ public class KitSelectionScreen extends CScreen {
                     .withLore(kit.generateLore().toArray(new Component[0]))
                     .buildStack();
 
-            setItem(12 + count, new CItem(itemStack).onClick(event -> {
+            setItem(3 + count, new CItem(itemStack).onClick(event -> {
 
                 // Set the kit in case ingame
                 if(GreedyGhosts.getInstance().getGameManager().getCurrentState() instanceof IngameState state) {

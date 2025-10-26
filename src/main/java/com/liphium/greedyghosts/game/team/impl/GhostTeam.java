@@ -16,8 +16,10 @@ import java.util.Objects;
 
 public class GhostTeam extends Team {
 
+    public static final String TEAM_NAME = "Ghosts";
+
     public GhostTeam(int maxPlayers) {
-        super("Ghosts", "§f§lGhosts", "WHITE", "§f§l", XMaterial.SKELETON_SKULL, maxPlayers);
+        super(TEAM_NAME, "§f§lGhosts", "WHITE", "§f§l", XMaterial.SKELETON_SKULL, maxPlayers);
     }
 
     @Override

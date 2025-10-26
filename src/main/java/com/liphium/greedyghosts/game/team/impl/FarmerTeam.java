@@ -18,8 +18,10 @@ import java.util.Objects;
 
 public class FarmerTeam extends Team {
 
+    public static final String TEAM_NAME = "Farmers";
+
     public FarmerTeam(int maxPlayers) {
-        super("Farmers", "§e§lFarmers", "YELLOW", "§e§l", XMaterial.WHEAT, maxPlayers);
+        super(TEAM_NAME, "§e§lFarmers", "YELLOW", "§e§l", XMaterial.WHEAT, maxPlayers);
     }
 
     @Override

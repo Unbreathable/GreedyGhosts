@@ -23,9 +23,9 @@ public record HotbarKit(String name, XMaterial material, ItemStack[] items) {
     public static HotbarKit witchKit() {
         return new HotbarKit("Witch", XMaterial.POISONOUS_POTATO, new ItemStack[]{
                 null,
-                new ItemStackBuilder(XMaterial.WOODEN_AXE).buildStack(),
-                new ItemStackBuilder(XMaterial.WOODEN_SHOVEL).buildStack(),
-                new ItemStackBuilder(XMaterial.WOODEN_PICKAXE).buildStack(),
+                new ItemStackBuilder(XMaterial.WOODEN_AXE).makeUnbreakable().buildStack(),
+                new ItemStackBuilder(XMaterial.WOODEN_SHOVEL).makeUnbreakable().buildStack(),
+                new ItemStackBuilder(XMaterial.WOODEN_PICKAXE).makeUnbreakable().buildStack(),
                 null,
                 null,
                 new ItemStackBuilder(XMaterial.LINGERING_POTION).withName("Lingering Potion of Regeneration I").withBasePotionType(PotionType.REGENERATION).withAmount(2).buildStack(),
@@ -37,9 +37,9 @@ public record HotbarKit(String name, XMaterial material, ItemStack[] items) {
     public static HotbarKit undeadKit() {
         return new HotbarKit("Undead", XMaterial.DEAD_BUSH, new ItemStack[]{
                 null,
-                new ItemStackBuilder(XMaterial.WOODEN_AXE).buildStack(),
-                new ItemStackBuilder(XMaterial.WOODEN_SHOVEL).buildStack(),
-                new ItemStackBuilder(XMaterial.WOODEN_PICKAXE).buildStack(),
+                new ItemStackBuilder(XMaterial.WOODEN_AXE).makeUnbreakable().buildStack(),
+                new ItemStackBuilder(XMaterial.WOODEN_SHOVEL).makeUnbreakable().buildStack(),
+                new ItemStackBuilder(XMaterial.WOODEN_PICKAXE).makeUnbreakable().buildStack(),
                 null,
                 null,
                 null,
@@ -51,9 +51,9 @@ public record HotbarKit(String name, XMaterial material, ItemStack[] items) {
     public static HotbarKit maniacKit() {
         return new HotbarKit("Maniac", XMaterial.TNT, new ItemStack[]{
                 null,
-                new ItemStackBuilder(XMaterial.WOODEN_AXE).buildStack(),
-                new ItemStackBuilder(XMaterial.WOODEN_SHOVEL).buildStack(),
-                new ItemStackBuilder(XMaterial.WOODEN_PICKAXE).buildStack(),
+                new ItemStackBuilder(XMaterial.WOODEN_AXE).makeUnbreakable().buildStack(),
+                new ItemStackBuilder(XMaterial.WOODEN_SHOVEL).makeUnbreakable().buildStack(),
+                new ItemStackBuilder(XMaterial.WOODEN_PICKAXE).makeUnbreakable().buildStack(),
                 null,
                 null,
                 null,

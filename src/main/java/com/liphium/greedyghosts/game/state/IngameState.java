@@ -1,10 +1,14 @@
 package com.liphium.greedyghosts.game.state;
 
+import com.cryptomorin.xseries.XMaterial;
 import com.liphium.greedyghosts.game.HotbarKit;
+import com.liphium.greedyghosts.screens.ItemShopScreen;
+import com.liphium.greedyghosts.screens.KitSelectionScreen;
 import de.badgames.cloudhelper.CloudHelper;
 import com.liphium.greedyghosts.util.LabyrinthGenerator;
 import de.badgames.gameCore.GameState;
 import de.badgames.gameCore.events.PlayerKillEvent;
+import de.badgames.pluginCore.PluginCore;
 import de.badgames.shared.state.EndState;
 import de.badgames.gameCore.map.GenericMap;
 import de.badgames.gameCore.team.Team;
@@ -27,7 +31,6 @@ import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.entity.*;
 import org.bukkit.event.player.*;
-import org.bukkit.inventory.ItemStack;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
@@ -101,7 +104,7 @@ public class IngameState extends GameState {
         }
 
         // Change the amount of presents based on team size
-        final var hunterSize = GreedyGhosts.getInstance().getGameManager().getTeamManager().getTeam("Ghosts").getPlayers().size();
+        final var hunterSize = GreedyGhosts.getInstance().getGameManager().getTeamManager().getTeam(GhostTeam.TEAM_NAME).getPlayers().size();
         maxSnacks = hunterSize * 4; // 4 per member of the team seems fine for 15 minutes
         snacksLeft = maxSnacks;
 
@@ -135,6 +138,7 @@ public class IngameState extends GameState {
                 player.setHealth(20);
                 teleportToProperLocation(player);
                 team.giveKit(player, false);
+                giveProperInventory(player, false);
             }
 
             // Apply invisibility to the ghosts
@@ -160,7 +164,7 @@ public class IngameState extends GameState {
 
                     // Check if the win condition for the hunters is met
                     if (currentGameTime <= 0) {
-                        handleWin(GreedyGhosts.getInstance().getGameManager().getTeamManager().getTeam("Farmers"));
+                        handleWin(GreedyGhosts.getInstance().getGameManager().getTeamManager().getTeam(FarmerTeam.TEAM_NAME));
                         return;
                     }
 
@@ -210,7 +214,14 @@ public class IngameState extends GameState {
                 player.setGameMode(GameMode.SURVIVAL);
                 currentRespawnTimer.remove(player);
 
+                // Make sure to give invisibility again when ghost
+                final var team = GreedyGhosts.getInstance().getGameManager().getTeamManager().getTeam(player);
+                if(team instanceof GhostTeam) {
+                    player.addPotionEffect(new PotionEffect(PotionEffectType.INVISIBILITY, 99999, 1, false, false));
+                }
+
                 teleportToProperLocation(player);
+                giveProperInventory(player, true);
                 return;
             }
 
@@ -247,6 +258,21 @@ public class IngameState extends GameState {
             player.teleport(spawnLocations.get(wallDirections[currentSpawnDirection]));
         } else {
             player.teleport(Objects.requireNonNull(GreedyGhosts.getInstance().getGameManager().getMapLocation(FARMER_SPAWN)));
+        }
+    }
+
+    /**
+     * Give a player the proper inventory for the team they're in.
+     * @param player the player
+     * @param death whether the player died or not
+     */
+    private void giveProperInventory(Player player, boolean death) {
+        final var team = GreedyGhosts.getInstance().getGameManager().getTeamManager().getTeam(player);
+
+        if(team instanceof GhostTeam) {
+            giveGhostInventory(player);
+        } else {
+            giveFarmerInventory(player, death);
         }
     }
 
@@ -364,6 +390,37 @@ public class IngameState extends GameState {
         };
     }
 
+    private void giveGhostInventory(Player player) {
+        player.getInventory().setBoots(null);
+        player.getInventory().setChestplate(null);
+        player.getInventory().setLeggings(null);
+        player.getInventory().setHelmet(null);
+        player.getInventory().clear();
+
+        player.getInventory().setItem(0, new ItemStackBuilder(XMaterial.CHEST)
+                .withName(Component.text("Kit selection", NamedTextColor.GOLD))
+                .buildStack());
+    }
+
+    private void giveFarmerInventory(Player player, boolean death) {
+        player.getInventory().setBoots(null);
+        player.getInventory().setChestplate(null);
+        player.getInventory().setLeggings(null);
+        player.getInventory().setHelmet(null);
+        player.getInventory().clear();
+
+        player.getInventory().setItem(0, new ItemStackBuilder(XMaterial.STONE_SWORD).makeUnbreakable().buildStack());
+        if(!death) {
+            player.getInventory().setItem(1, new ItemStackBuilder(XMaterial.DIRT).withAmount(4).buildStack());
+            player.getInventory().setItem(2, new ItemStackBuilder(XMaterial.COBBLESTONE).withAmount(2).buildStack());
+            player.getInventory().setItem(3, new ItemStackBuilder(XMaterial.OAK_PLANKS).withAmount(2).buildStack());
+        }
+
+        player.getInventory().setItem(8, new ItemStackBuilder(XMaterial.CHEST)
+                .withName(Component.text("Shop", NamedTextColor.GOLD))
+                .buildStack());
+    }
+
     @Override
     public void onInteract(PlayerInteractEvent event) {
         if (event.getItem() != null && event.getItem().getType() == Material.WIND_CHARGE) {
@@ -373,28 +430,40 @@ public class IngameState extends GameState {
         GreedyGhosts.getInstance().getMachineManager().onInteract(event);
 
         if (event.getItem() != null) {
-            Team team = GreedyGhosts.getInstance().getGameManager().getTeamManager().getTeam(event.getPlayer());
-            ItemStack usedItem = event.getItem();
-            if (usedItem.getType().equals(Material.GRAY_DYE) && event.getClickedBlock() != null) {
-                traps.add(new SlowTrap(event.getClickedBlock().getLocation().clone().add(0.5, 1, 0.5), team));
-                reduceMainHandItem(event.getPlayer(), Material.GRAY_DYE);
-            } else if (usedItem.getType().equals(Material.GREEN_DYE) && event.getClickedBlock() != null) {
-                traps.add(new PoisonTrap(event.getClickedBlock().getLocation().clone().add(0.5, 1, 0.5), team));
-                reduceMainHandItem(event.getPlayer(), Material.GREEN_DYE);
-            } else if (usedItem.getType().equals(Material.FEATHER) && event.getClickedBlock() != null) {
-                traps.add(new FlyTrap(event.getClickedBlock().getLocation().clone().add(0.5, 1, 0.5), team));
-                reduceMainHandItem(event.getPlayer(), Material.FEATHER);
-            } else if (usedItem.getType().equals(Material.LIGHT_BLUE_DYE) && event.getClickedBlock() != null) {
-                traps.add(new FreezeTrap(event.getClickedBlock().getLocation().clone().add(0.5, 1, 0.5), team));
-                reduceMainHandItem(event.getPlayer(), Material.LIGHT_BLUE_DYE);
-            } else if (usedItem.getType().equals(Material.WHITE_DYE) && event.getClickedBlock() != null) {
-                traps.add(new WebTrap(event.getClickedBlock().getLocation().clone().add(0.5, 1, 0.5), team));
-                reduceMainHandItem(event.getPlayer(), Material.WHITE_DYE);
-            } else if (usedItem.getType().equals(Material.FEATHER) && event.getClickedBlock() != null) {
-                traps.add(new FlyTrap(event.getClickedBlock().getLocation().clone().add(0.5, 1, 0.5), team));
-                reduceMainHandItem(event.getPlayer(), Material.FEATHER);
-            } else if (usedItem.getType().equals(Material.LEATHER_HORSE_ARMOR)) {
-                event.setCancelled(true);
+            final var usedItem = event.getItem();
+            final var team = GreedyGhosts.getInstance().getGameManager().getTeamManager().getTeam(event.getPlayer());
+
+            if(team instanceof GhostTeam) {
+
+                // For the ghosts the chest is the kit selection
+                if(usedItem.getType().equals(Material.CHEST)) {
+                    PluginCore.getInstance().getScreens().open(event.getPlayer(), KitSelectionScreen.SCREEN_ID);
+                    event.setCancelled(true);
+                }
+
+            } else {
+
+                // Check if it's the item shop
+                if(usedItem.getType().equals(Material.CHEST)) {
+                    PluginCore.getInstance().getScreens().open(event.getPlayer(), ItemShopScreen.SCREEN_ID);
+                    event.setCancelled(true);
+                    return;
+                }
+
+                // Spawn traps in case it's that kind of item
+                if (usedItem.getType().equals(Material.GREEN_DYE) && event.getClickedBlock() != null) {
+                    traps.add(new PoisonTrap(event.getClickedBlock().getLocation().clone().add(0.5, 1, 0.5), team));
+                    reduceMainHandItem(event.getPlayer(), Material.GREEN_DYE);
+                } else if (usedItem.getType().equals(Material.WHITE_DYE) && event.getClickedBlock() != null) {
+                    traps.add(new WebTrap(event.getClickedBlock().getLocation().clone().add(0.5, 1, 0.5), team));
+                    reduceMainHandItem(event.getPlayer(), Material.WHITE_DYE);
+                } else if (usedItem.getType().equals(Material.LEATHER) && event.getClickedBlock() != null) {
+                    traps.add(new ArmorTrap(event.getClickedBlock().getLocation().clone().add(0.5, 1, 0.5), team));
+                    reduceMainHandItem(event.getPlayer(), Material.LEATHER);
+                } else if (usedItem.getType().equals(Material.GLOWSTONE_DUST) && event.getClickedBlock() != null) {
+                    traps.add(new GlowTrap(event.getClickedBlock().getLocation().clone().add(0.5, 1, 0.5), team));
+                    reduceMainHandItem(event.getPlayer(), Material.GLOWSTONE_DUST);
+                }
             }
         }
     }
@@ -438,9 +507,19 @@ public class IngameState extends GameState {
             if(!inCenter) {
                 if(!event.getPlayer().hasPotionEffect(PotionEffectType.SPEED)) {
                     event.getPlayer().addPotionEffect(new PotionEffect(PotionEffectType.SPEED, Integer.MAX_VALUE, 2, false, false));
+                    giveGhostInventory(event.getPlayer());
                 }
             } else {
                 event.getPlayer().removePotionEffect(PotionEffectType.SPEED);
+
+                // Boost away in case they don't have a kit selected
+                if(!selectedKits.containsKey(event.getPlayer())) {
+                    final var movementVector = event.getTo().clone().subtract(event.getFrom()).toVector().normalize();
+                    event.getPlayer().setVelocity(movementVector.multiply(-2).setY(0.2));
+                    event.getPlayer().sendMessage(GreedyGhosts.PREFIX.append(Component.text("Please select a kit!", NamedTextColor.RED)));
+                } else {
+                    selectedKits.get(event.getPlayer()).giveKit(event.getPlayer());
+                }
             }
         }
 
@@ -467,6 +546,16 @@ public class IngameState extends GameState {
 
     @Override
     public void onDamageByEntity(EntityDamageByEntityEvent event) {
+
+        // Make sure ghosts don't do any attack damage against farmers or each other
+        if(event.getCause() == EntityDamageEvent.DamageCause.ENTITY_ATTACK && event.getDamager() instanceof Player damager
+        && event.getEntity() instanceof Player) {
+            final var team = GreedyGhosts.getInstance().getGameManager().getTeamManager().getTeam(damager);
+            if(team instanceof GhostTeam) {
+                event.setCancelled(true);
+            }
+        }
+
         if (event.getEntity().getType() == EntityType.ARMOR_STAND) {
             event.setCancelled(true);
         }
@@ -572,7 +661,14 @@ public class IngameState extends GameState {
             Bukkit.broadcast(GreedyGhosts.PREFIX.append(Component.text(team.getChatColor() + player.getName() + " §7died!")));
         }
 
-        event.getDrops().removeIf(x -> x.getType() == Material.LEATHER_HORSE_ARMOR);
+        // Make sure to reward the farmers when a ghost gets killed
+        if(team instanceof GhostTeam) {
+            for(var farmer : GreedyGhosts.getInstance().getGameManager().getTeamManager().getTeam(FarmerTeam.TEAM_NAME).getPlayers()) {
+                if(farmer.getGameMode().equals(GameMode.SURVIVAL)) {
+                    farmer.getInventory().addItem(new ItemStackBuilder(XMaterial.CARVED_PUMPKIN).withAmount(5).buildStack());
+                }
+            }
+        }
 
         GreedyGhosts.getInstance().getTaskManager().inject(new Runnable() {
             int tickCount = 0;
@@ -651,9 +747,9 @@ public class IngameState extends GameState {
         // Make sure the team loses if there are no players left
         if (team.getPlayers().isEmpty()) {
             if (team instanceof FarmerTeam) {
-                handleWin(GreedyGhosts.getInstance().getGameManager().getTeamManager().getTeam("Farmers"));
+                handleWin(GreedyGhosts.getInstance().getGameManager().getTeamManager().getTeam(FarmerTeam.TEAM_NAME));
             } else {
-                handleWin(GreedyGhosts.getInstance().getGameManager().getTeamManager().getTeam("Ghosts"));
+                handleWin(GreedyGhosts.getInstance().getGameManager().getTeamManager().getTeam(GhostTeam.TEAM_NAME));
             }
         }
     }
@@ -681,16 +777,31 @@ public class IngameState extends GameState {
         public abstract void onEnter(Player player);
     }
 
-    public static class SlowTrap extends DroppableTrap {
+    public static class GlowTrap extends DroppableTrap {
 
-        SlowTrap(Location location, Team team) {
-            super(location, team, Material.GRAY_DYE);
+        GlowTrap(Location location, Team team) {
+            super(location, team, Material.GLOWSTONE_DUST);
         }
 
         @Override
         public void onEnter(Player player) {
-            player.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 300, 4));
-            player.addPotionEffect(new PotionEffect(PotionEffectType.GLOWING, 300, 0));
+            player.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 100, 4));
+            player.addPotionEffect(new PotionEffect(PotionEffectType.GLOWING, 200, 0));
+        }
+    }
+
+    public static class ArmorTrap extends DroppableTrap {
+
+        ArmorTrap(Location location, Team team) {
+            super(location, team, Material.LEATHER);
+        }
+
+        @Override
+        public void onEnter(Player player) {
+            player.getInventory().setHelmet(new ItemStackBuilder(XMaterial.LEATHER_HELMET).makeUnbreakable().buildStack());
+            player.getInventory().setChestplate(new ItemStackBuilder(XMaterial.LEATHER_CHESTPLATE).makeUnbreakable().buildStack());
+            player.getInventory().setLeggings(new ItemStackBuilder(XMaterial.LEATHER_LEGGINGS).makeUnbreakable().buildStack());
+            player.getInventory().setBoots(new ItemStackBuilder(XMaterial.LEATHER_BOOTS).makeUnbreakable().buildStack());
         }
     }
 
@@ -703,37 +814,7 @@ public class IngameState extends GameState {
         @Override
         public void onEnter(Player player) {
             player.addPotionEffect(new PotionEffect(PotionEffectType.POISON, 100, 2));
-            player.addPotionEffect(new PotionEffect(PotionEffectType.GLOWING, 300, 0));
-        }
-    }
-
-    public static class FreezeTrap extends DroppableTrap {
-
-        FreezeTrap(Location location, Team team) {
-            super(location, team, Material.LIGHT_BLUE_DYE);
-        }
-
-        @Override
-        public void onEnter(Player player) {
-            player.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 100, 255, true, false));
-            player.addPotionEffect(new PotionEffect(PotionEffectType.GLOWING, 300, 0));
-        }
-    }
-
-    public static class FlyTrap extends DroppableTrap {
-
-        FlyTrap(Location location, Team team) {
-            super(location, team, Material.FEATHER);
-        }
-
-        @Override
-        public void onEnter(Player player) {
-            if (player.hasCooldown(Material.FEATHER)) {
-                return;
-            }
-
-            player.setVelocity(new Vector(0, 3, 0));
-            player.addPotionEffect(new PotionEffect(PotionEffectType.GLOWING, 300, 0));
+            player.addPotionEffect(new PotionEffect(PotionEffectType.GLOWING, 100, 0));
         }
     }
 
@@ -752,7 +833,7 @@ public class IngameState extends GameState {
             main.getRelative(BlockFace.WEST).setType(Material.COBWEB);
             main.getRelative(BlockFace.NORTH).setType(Material.COBWEB);
             main.getRelative(BlockFace.SOUTH).setType(Material.COBWEB);
-            player.addPotionEffect(new PotionEffect(PotionEffectType.GLOWING, 300, 0));
+            player.addPotionEffect(new PotionEffect(PotionEffectType.GLOWING, 100, 0));
         }
     }
 }
