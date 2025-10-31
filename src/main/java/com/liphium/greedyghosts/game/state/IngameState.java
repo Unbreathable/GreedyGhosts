@@ -13,7 +13,6 @@ import de.badgames.shared.state.EndState;
 import de.badgames.gameCore.map.GenericMap;
 import de.badgames.gameCore.team.Team;
 import de.badgames.shared.util.PlayerUtil;
-import de.badgames.pluginCore.util.TimeFormatter;
 import de.badgames.pluginCore.util.ConfigUtil;
 import de.badgames.pluginCore.util.ItemStackBuilder;
 import com.liphium.greedyghosts.GreedyGhosts;
@@ -51,6 +50,7 @@ public class IngameState extends GameState {
     final int END_TIME = 23000;
 
     final int RESPAWN_DELAY = 10; // In seconds
+    final int SNACK_RESPAWN_DELAY = 10; // In seconds
 
     // All locations for the map
     final String SPECTATOR_LOCATION = "Spectators";
@@ -90,6 +90,9 @@ public class IngameState extends GameState {
 
     // Selected kit by player (only ghost team)
     private final HashMap<Player, HotbarKit> selectedKits = new HashMap<>();
+
+    // All currently mined snack blocks
+    private final ArrayList<SnackBlock> snackBlocks = new ArrayList<>();
 
     public IngameState() {
         super("In game", 30);
@@ -178,6 +181,9 @@ public class IngameState extends GameState {
                     // Decrement all respawn timers and teleport players
                     handleRespawnTimers();
 
+                    // Decrement all snack block counters
+                    handleSnackBlocks();
+
                     // Adjust the ingame time for the night cycle
                     final double progress = (double) currentGameTime / MAX_GAME_TIME;
                     final int ingameTime = START_TIME + (int) ((END_TIME - START_TIME) * progress);
@@ -256,6 +262,24 @@ public class IngameState extends GameState {
             currentRespawnTimer.put(player, entry.getValue() - 1);
         }
     }
+
+    /**
+     * This method decrements all snack counters and restores the original block once the counter is over.
+     */
+    private void handleSnackBlocks() {
+        snackBlocks.removeIf(block -> {
+            // Restore block and remove from list in case the counter would hit zero
+            if(block.secondsRemaining - 1 <= 0) {
+                block.location.getBlock().setType(block.original);
+                return true;
+            }
+
+            // Decrement the timer
+            block.secondsRemaining--;
+            return false;
+        });
+    }
+
 
     /**
      * Teleport a player to their proper location after respawn or at game start.
@@ -421,7 +445,7 @@ public class IngameState extends GameState {
             return;
         }
 
-        GreedyGhosts.getInstance().getMachineManager().onInteract(event);
+        //GreedyGhosts.getInstance().getMachineManager().onInteract(event);
 
         if (event.getItem() != null) {
             final var usedItem = event.getItem();
@@ -460,6 +484,9 @@ public class IngameState extends GameState {
                 }
             }
         }
+
+        Bukkit.broadcast(Component.text("interact event is cancelled: " + event.isCancelled()));
+        event.setCancelled(false);
     }
 
     void reduceMainHandItem(Player player, Material material) {
@@ -478,7 +505,7 @@ public class IngameState extends GameState {
 
     @Override
     public void onInteractAtEntity(PlayerInteractAtEntityEvent event) {
-        GreedyGhosts.getInstance().getMachineManager().onInteractAtEntity(event);
+        //GreedyGhosts.getInstance().getMachineManager().onInteractAtEntity(event);
 
         if (event.getRightClicked().getType().equals(EntityType.ARMOR_STAND)) {
             event.setCancelled(true);
@@ -510,7 +537,20 @@ public class IngameState extends GameState {
 
                 if(!event.getPlayer().hasPotionEffect(PotionEffectType.SPEED)) {
                     event.getPlayer().addPotionEffect(new PotionEffect(PotionEffectType.SPEED, Integer.MAX_VALUE, 10, false, false));
+
+                    // If the ghost's inventory contains a snack decrement the counter
+                    if(hasSnack(event.getPlayer())) {
+                        Bukkit.broadcast(GreedyGhosts.PREFIX.append(Component.text(event.getPlayer().getName(), NamedTextColor.GOLD, TextDecoration.BOLD)).appendSpace()
+                                .append(Component.text("stole a snack and returned successfully!", NamedTextColor.GRAY)));
+                        snacksLeft--;
+                        if(snacksLeft <= 0) {
+                            handleWin(team);
+                        }
+                    }
+
+                    // Give them the chest and regenerate them
                     giveGhostInventory(event.getPlayer());
+                    event.getPlayer().setHealth(20);
                 }
             } else {
                 event.getPlayer().removePotionEffect(PotionEffectType.SPEED);
@@ -534,6 +574,15 @@ public class IngameState extends GameState {
         ArrayList<DroppableTrap> toRemove = new ArrayList<>();
         for (DroppableTrap trap : traps) {
             if (trap.location.distance(event.getPlayer().getLocation()) <= 3 && !team.getName().equals(trap.team.getName())) {
+
+                // Make sure the trap is actually visible
+                final var direction = trap.location.clone().subtract(event.getPlayer().getLocation()).toVector().normalize();
+                final var distance = trap.location.distance(event.getPlayer().getLocation());
+                final var result = trap.location.getWorld().rayTraceBlocks(trap.location, direction, distance, FluidCollisionMode.NEVER, true);
+                if(result != null) {
+                    continue;
+                }
+
                 toRemove.add(trap);
                 trap.onEnter(event.getPlayer());
                 break;
@@ -585,11 +634,6 @@ public class IngameState extends GameState {
 
     @Override
     public void onPlace(BlockPlaceEvent event) {
-        if (event.getBlockPlaced().getType().equals(Material.REDSTONE_TORCH)) {
-            event.setCancelled(true);
-            return;
-        }
-
         if (event.getBlockPlaced().getLocation().getY() >= 250) {
             event.setCancelled(true);
             return;
@@ -624,6 +668,29 @@ public class IngameState extends GameState {
             Material.FERN, Material.SWEET_BERRY_BUSH
     );
 
+    final List<Material> woolTypes = Arrays.asList(
+            Material.WHITE_WOOL, Material.BLACK_WOOL, Material.BLUE_WOOL, Material.GRAY_WOOL,
+            Material.LIME_WOOL, Material.BROWN_WOOL, Material.CYAN_WOOL, Material.MAGENTA_WOOL,
+            Material.ORANGE_WOOL, Material.LIGHT_BLUE_WOOL, Material.LIGHT_GRAY_WOOL,
+            Material.PINK_WOOL, Material.PURPLE_WOOL, Material.GREEN_WOOL, Material.YELLOW_WOOL,
+            Material.RED_WOOL
+    );
+
+    /**
+     * Check if a player's inventory contains a snack.
+     *
+     * @param player The player
+     * @return If the inventory contains a snack or not
+     */
+    private boolean hasSnack(Player player) {
+        for(Material wool : woolTypes) {
+            if(player.getInventory().contains(wool)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     @Override
     public void onBreak(BlockBreakEvent event) {
         if (GreedyGhosts.getInstance().getMachineManager().breakLocation(event.getBlock().getLocation())) {
@@ -631,9 +698,34 @@ public class IngameState extends GameState {
             return;
         }
 
+        final var team = GreedyGhosts.getInstance().getGameManager().getTeamManager().getTeam(event.getPlayer());
+
+        // Handle ghosts breaking wool blocks (snacks)
+        if(team instanceof GhostTeam && event.getBlock().getType().toString().contains("WOOL")) {
+            event.setCancelled(true);
+            event.setDropItems(false);
+
+            // Make sure the ghost doesn't already have a snack
+            if(hasSnack(event.getPlayer())) {
+                event.getPlayer().sendMessage(Component.text("You already have a snack!", NamedTextColor.RED));
+                return;
+            }
+
+            // Give the ghost a snack
+            event.getPlayer().getInventory().addItem(new ItemStackBuilder(event.getBlock().getType())
+                    .withName(Component.text("Snack", NamedTextColor.GOLD, TextDecoration.BOLD))
+                    .buildStack());
+
+            // Make sure the block is reverted from bedrock after being replaced
+            snackBlocks.add(new SnackBlock(SNACK_RESPAWN_DELAY, event.getBlock().getLocation(), event.getBlock().getType()));
+            event.getBlock().setType(Material.BEDROCK);
+            return;
+        }
+
         // Only let placed blocks be broken again
         if (placedBlocks.get(event.getBlock().getLocation()) != null) {
             placedBlocks.remove(event.getBlock().getLocation());
+            event.setDropItems(false);
             return;
         }
 
@@ -724,10 +816,11 @@ public class IngameState extends GameState {
                 || event.getEntityType().equals(EntityType.WIND_CHARGE)
                 || event.getEntityType().equals(EntityType.BREEZE_WIND_CHARGE)
                 || event.getEntityType().equals(EntityType.TNT)
+                || event.getEntityType().equals(EntityType.POTION)
                 || event.getEntityType().equals(EntityType.ARROW)) {
             return;
         }
-        event.setCancelled(true);
+        //event.setCancelled(true);
     }
 
     @Override
@@ -760,6 +853,18 @@ public class IngameState extends GameState {
             } else {
                 handleWin(GreedyGhosts.getInstance().getGameManager().getTeamManager().getTeam(GhostTeam.TEAM_NAME));
             }
+        }
+    }
+
+    public static class SnackBlock {
+        private final Location location;
+        private final Material original;
+        public int secondsRemaining;
+
+        public SnackBlock(int secondsRemaining, Location location, Material original) {
+            this.secondsRemaining = secondsRemaining;
+            this.location = location;
+            this.original = original;
         }
     }
 
