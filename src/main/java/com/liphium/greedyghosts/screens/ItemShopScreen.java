@@ -22,17 +22,18 @@ public class ItemShopScreen extends CScreen {
 
         background();
 
-        // All the blocks
-        setItem(0, itemWithPrice(XMaterial.COARSE_DIRT, "Dirt", 2, 4));
-        setItem(1, itemWithPrice(XMaterial.OAK_PLANKS, "Planks", 4, 4));
-        setItem(2, itemWithPrice(XMaterial.COBBLESTONE, "Cobblestone", 5, 4));
-        setItem(3, spacer());
+        // All the blocks and items
+        setItem(0, itemWithPrice(XMaterial.GOLDEN_APPLE, "Golden apple", 2, 1));
+        setItem(1, itemWithPrice(XMaterial.COARSE_DIRT, "Dirt", 2, 4));
+        setItem(2, itemWithPrice(XMaterial.OAK_PLANKS, "Planks", 4, 4));
+        setItem(3, itemWithPrice(XMaterial.COBBLESTONE, "Cobblestone", 5, 4));
+        setItem(4, spacer());
 
         // All the traps
-        setItem(4, itemWithPrice(XMaterial.GLOWSTONE_DUST, "Glow Trap", 5, 1));
-        setItem(5, itemWithPrice(XMaterial.GREEN_DYE, "Poison Trap", 5, 1));
-        setItem(6, itemWithPrice(XMaterial.LEATHER, "Armor Trap", 7, 1));
-        setItem(7, itemWithPrice(XMaterial.WHITE_DYE, "Web Trap", 8, 1));
+        setItem(5, itemWithPrice(XMaterial.GLOWSTONE_DUST, "Glow Trap", 5, 1));
+        setItem(6, itemWithPrice(XMaterial.GREEN_DYE, "Poison Trap", 5, 1));
+        setItem(7, itemWithPrice(XMaterial.LEATHER, "Armor Trap", 7, 1));
+        setItem(8, itemWithPrice(XMaterial.WHITE_DYE, "Web Trap", 8, 1));
     }
 
     private static final ItemStack item = new ItemStackBuilder(XMaterial.BLACK_STAINED_GLASS_PANE).withName(Component.text("§r")).buildStack();
@@ -67,7 +68,7 @@ public class ItemShopScreen extends CScreen {
     public static void buyFunction(CClickEvent event, ItemStack stack, int price) {
         // Get the amount of pumpkins in the inventory
         if (!InventoryUtil.hasEnoughItems(event.player(), XMaterial.CARVED_PUMPKIN, price)) {
-            event.player().sendMessage(GreedyGhosts.PREFIX.append(Component.text("You don't have enough gold nuggets to purchase this item.", NamedTextColor.RED)));
+            event.player().sendMessage(GreedyGhosts.PREFIX.append(Component.text("You don't have enough pumpkins to purchase this item.", NamedTextColor.RED)));
             event.player().closeInventory();
             return;
         }

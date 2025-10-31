@@ -445,7 +445,7 @@ public class IngameState extends GameState {
             return;
         }
 
-        //GreedyGhosts.getInstance().getMachineManager().onInteract(event);
+        GreedyGhosts.getInstance().getMachineManager().onInteract(event);
 
         if (event.getItem() != null) {
             final var usedItem = event.getItem();
@@ -457,6 +457,7 @@ public class IngameState extends GameState {
                 if(usedItem.getType().equals(Material.CHEST)) {
                     PluginCore.getInstance().getScreens().open(event.getPlayer(), KitSelectionScreen.SCREEN_ID);
                     event.setCancelled(true);
+                    return;
                 }
 
             } else {
@@ -484,9 +485,6 @@ public class IngameState extends GameState {
                 }
             }
         }
-
-        Bukkit.broadcast(Component.text("interact event is cancelled: " + event.isCancelled()));
-        event.setCancelled(false);
     }
 
     void reduceMainHandItem(Player player, Material material) {
@@ -576,7 +574,7 @@ public class IngameState extends GameState {
             if (trap.location.distance(event.getPlayer().getLocation()) <= 3 && !team.getName().equals(trap.team.getName())) {
 
                 // Make sure the trap is actually visible
-                final var direction = trap.location.clone().subtract(event.getPlayer().getLocation()).toVector().normalize();
+                final var direction = event.getPlayer().getLocation().clone().subtract(trap.location).toVector().normalize();
                 final var distance = trap.location.distance(event.getPlayer().getLocation());
                 final var result = trap.location.getWorld().rayTraceBlocks(trap.location, direction, distance, FluidCollisionMode.NEVER, true);
                 if(result != null) {
@@ -636,6 +634,14 @@ public class IngameState extends GameState {
     public void onPlace(BlockPlaceEvent event) {
         if (event.getBlockPlaced().getLocation().getY() >= 250) {
             event.setCancelled(true);
+            return;
+        }
+
+        // Instantly light placed tnt
+        if(event.getBlockPlaced().getType().equals(Material.TNT)) {
+            event.getBlockPlaced().setType(Material.AIR);
+            final var world = event.getBlockPlaced().getWorld();
+            world.spawnEntity(event.getBlockPlaced().getLocation().toCenterLocation(), EntityType.TNT);
             return;
         }
 
@@ -743,6 +749,7 @@ public class IngameState extends GameState {
     public void onDeath(PlayerDeathEvent event) {
         final var player = event.getPlayer();
 
+        event.getDrops().clear();
         player.getInventory().clear();
         player.getInventory().setBoots(null);
         player.getInventory().setLeggings(null);
@@ -750,6 +757,8 @@ public class IngameState extends GameState {
         player.getInventory().setHelmet(null);
         event.deathMessage(null);
         event.setKeepLevel(true);
+        event.setShouldDropExperience(false);
+        event.setKeepInventory(true);
 
         Team team = GreedyGhosts.getInstance().getGameManager().getTeamManager().getTeam(player);
 
@@ -817,10 +826,18 @@ public class IngameState extends GameState {
                 || event.getEntityType().equals(EntityType.BREEZE_WIND_CHARGE)
                 || event.getEntityType().equals(EntityType.TNT)
                 || event.getEntityType().equals(EntityType.POTION)
+                || event.getEntityType().equals(EntityType.ZOMBIE)
+                || event.getEntityType().equals(EntityType.SKELETON)
+                || event.getEntityType().equals(EntityType.CREEPER)
                 || event.getEntityType().equals(EntityType.ARROW)) {
             return;
         }
-        //event.setCancelled(true);
+        event.setCancelled(true);
+    }
+
+    @Override
+    public void onFood(FoodLevelChangeEvent event) {
+        event.setFoodLevel(20);
     }
 
     @Override
