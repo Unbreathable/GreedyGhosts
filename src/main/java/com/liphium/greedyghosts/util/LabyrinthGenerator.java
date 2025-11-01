@@ -137,7 +137,7 @@ public class LabyrinthGenerator {
      */
     public static void generateLabyrinth(List<Section> walls, BlockFace towards) {
         final Random rand = new Random();
-        final var height = 5;
+        final var height = 8;
 
         // Generate the entrances
         final List<List<Location>> entrances = new ArrayList<>(); // Section id -> Entrances
