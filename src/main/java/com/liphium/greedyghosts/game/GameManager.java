@@ -1,5 +1,6 @@
 package com.liphium.greedyghosts.game;
 
+import com.liphium.greedyghosts.game.state.LobbyState;
 import de.badgames.cloudhelper.CloudHelper;
 import com.liphium.greedyghosts.GreedyGhosts;
 import com.liphium.greedyghosts.game.state.IngameState;
@@ -8,7 +9,6 @@ import de.badgames.gameCore.GameState;
 import de.badgames.gameCore.IGameManager;
 import de.badgames.gameCore.events.GameMapChangeEvent;
 import de.badgames.gameCore.events.GameMapChangedEvent;
-import de.badgames.shared.state.LobbyState;
 import de.badgames.gameCore.map.GenericMap;
 import de.badgames.gameCore.map.IMap;
 import de.badgames.shared.screens.TeamSelectionScreen;

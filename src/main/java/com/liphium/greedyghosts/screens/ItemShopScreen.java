@@ -23,17 +23,17 @@ public class ItemShopScreen extends CScreen {
         background();
 
         // All the blocks and items
-        setItem(0, itemWithPrice(XMaterial.GOLDEN_APPLE, "Golden apple", 2, 1));
-        setItem(1, itemWithPrice(XMaterial.COARSE_DIRT, "Dirt", 2, 4));
-        setItem(2, itemWithPrice(XMaterial.OAK_PLANKS, "Planks", 4, 4));
-        setItem(3, itemWithPrice(XMaterial.COBBLESTONE, "Cobblestone", 5, 4));
+        setItem(0, itemWithPrice(XMaterial.GOLDEN_APPLE, "Golden apple", 6, 1));
+        setItem(1, itemWithPrice(XMaterial.COARSE_DIRT, "Dirt", 6, 4));
+        setItem(2, itemWithPrice(XMaterial.OAK_PLANKS, "Planks", 12, 4));
+        setItem(3, itemWithPrice(XMaterial.COBBLESTONE, "Cobblestone", 15, 4));
         setItem(4, spacer());
 
         // All the traps
-        setItem(5, itemWithPrice(XMaterial.GLOWSTONE_DUST, "Glow Trap", 5, 1));
-        setItem(6, itemWithPrice(XMaterial.GREEN_DYE, "Poison Trap", 5, 1));
-        setItem(7, itemWithPrice(XMaterial.LEATHER, "Armor Trap", 7, 1));
-        setItem(8, itemWithPrice(XMaterial.WHITE_DYE, "Web Trap", 8, 1));
+        setItem(5, itemWithPrice(XMaterial.GLOWSTONE_DUST, "Glow Trap", 15, 1));
+        setItem(6, itemWithPrice(XMaterial.LEATHER, "Armor Trap", 15, 1));
+        setItem(7, itemWithPrice(XMaterial.WHITE_DYE, "Web Trap", 18, 1));
+        setItem(8, itemWithPrice(XMaterial.GREEN_DYE, "Poison Trap", 22, 1));
     }
 
     private static final ItemStack item = new ItemStackBuilder(XMaterial.BLACK_STAINED_GLASS_PANE).withName(Component.text("§r")).buildStack();

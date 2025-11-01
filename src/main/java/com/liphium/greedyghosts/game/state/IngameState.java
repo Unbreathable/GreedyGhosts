@@ -9,7 +9,6 @@ import com.liphium.greedyghosts.util.LabyrinthGenerator;
 import de.badgames.gameCore.GameState;
 import de.badgames.gameCore.events.PlayerKillEvent;
 import de.badgames.pluginCore.PluginCore;
-import de.badgames.shared.state.EndState;
 import de.badgames.gameCore.map.GenericMap;
 import de.badgames.gameCore.team.Team;
 import de.badgames.shared.util.PlayerUtil;
@@ -26,6 +25,7 @@ import net.kyori.adventure.title.Title;
 import org.bukkit.*;
 import org.bukkit.block.BlockFace;
 import org.bukkit.entity.*;
+import org.bukkit.event.block.Action;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.entity.*;
@@ -50,7 +50,10 @@ public class IngameState extends GameState {
     final int END_TIME = 23000;
 
     final int RESPAWN_DELAY = 10; // In seconds
-    final int SNACK_RESPAWN_DELAY = 10; // In seconds
+    final int SNACK_RESPAWN_DELAY = 120; // In seconds
+    final int PUMPKIN_RESPAWN_DELAY = 15; // In seconds
+
+    final double TRAP_RANGE = 4; // In blocks (roughly)
 
     // All locations for the map
     final String SPECTATOR_LOCATION = "Spectators";
@@ -63,7 +66,9 @@ public class IngameState extends GameState {
     int maxSnacks = 0;
     private int snacksLeft = 0;
 
-    public record HighwayWall(LabyrinthGenerator.Section wallBefore, LabyrinthGenerator.Section wall, BlockFace direction) {}
+    public record HighwayWall(LabyrinthGenerator.Section wallBefore, LabyrinthGenerator.Section wall,
+                              BlockFace direction) {
+    }
 
     // Outside walls of the highway wall
     private final ArrayList<HighwayWall> highwayWalls = new ArrayList<>();
@@ -152,9 +157,13 @@ public class IngameState extends GameState {
             }
 
             // Apply invisibility to the ghosts
-            if(team instanceof GhostTeam) {
-                for(Player player : team.getPlayers()) {
+            if (team instanceof GhostTeam) {
+                for (Player player : team.getPlayers()) {
                     player.addPotionEffect(new PotionEffect(PotionEffectType.INVISIBILITY, 99999, 1, false, false));
+                }
+            } else {
+                for (Player player : team.getPlayers()) {
+                    player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 99999, 1, false, false));
                 }
             }
         }
@@ -225,19 +234,21 @@ public class IngameState extends GameState {
      * after the timer is up.
      */
     private void handleRespawnTimers() {
-        for(var entry : currentRespawnTimer.entrySet()) {
+        for (var entry : currentRespawnTimer.entrySet()) {
             final var player = entry.getKey();
 
             // Respawn in case it would hit zero
-            if(entry.getValue() - 1 <= 0) {
+            if (entry.getValue() - 1 <= 0) {
                 player.clearTitle();
                 player.setGameMode(GameMode.SURVIVAL);
                 currentRespawnTimer.remove(player);
 
                 // Make sure to give invisibility again when ghost
                 final var team = GreedyGhosts.getInstance().getGameManager().getTeamManager().getTeam(player);
-                if(team instanceof GhostTeam) {
+                if (team instanceof GhostTeam) {
                     player.addPotionEffect(new PotionEffect(PotionEffectType.INVISIBILITY, 99999, 1, false, false));
+                } else {
+                    player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 99999, 1, false, false));
                 }
 
                 teleportToProperLocation(player);
@@ -269,7 +280,7 @@ public class IngameState extends GameState {
     private void handleSnackBlocks() {
         snackBlocks.removeIf(block -> {
             // Restore block and remove from list in case the counter would hit zero
-            if(block.secondsRemaining - 1 <= 0) {
+            if (block.secondsRemaining - 1 <= 0) {
                 block.location.getBlock().setType(block.original);
                 return true;
             }
@@ -283,13 +294,14 @@ public class IngameState extends GameState {
 
     /**
      * Teleport a player to their proper location after respawn or at game start.
+     *
      * @param player The player
      */
     private void teleportToProperLocation(Player player) {
         final var team = GreedyGhosts.getInstance().getGameManager().getTeamManager().getTeam(player);
-        if(team instanceof GhostTeam) {
+        if (team instanceof GhostTeam) {
             currentSpawnDirection++;
-            if(currentSpawnDirection >= wallDirections.length) {
+            if (currentSpawnDirection >= wallDirections.length) {
                 currentSpawnDirection = 0;
             }
 
@@ -301,13 +313,14 @@ public class IngameState extends GameState {
 
     /**
      * Give a player the proper inventory for the team they're in.
+     *
      * @param player the player
-     * @param death whether the player died or not
+     * @param death  whether the player died or not
      */
     private void giveProperInventory(Player player, boolean death) {
         final var team = GreedyGhosts.getInstance().getGameManager().getTeamManager().getTeam(player);
 
-        if(team instanceof GhostTeam) {
+        if (team instanceof GhostTeam) {
             giveGhostInventory(player);
         } else {
             giveFarmerInventory(player, death);
@@ -328,7 +341,7 @@ public class IngameState extends GameState {
         }
 
         // Place the highway walls and set the spawns
-        for(final var wall : highwayWalls) {
+        for (final var wall : highwayWalls) {
             final var center1 = getCenter(wall.wall.start(), wall.wallBefore.start());
             final var center2 = getCenter(wall.wall.end(), wall.wallBefore.end());
             final var wallSpawn = getCenter(center1, center2);
@@ -340,6 +353,7 @@ public class IngameState extends GameState {
 
     /**
      * Generate the sides for a wall pointing in a specific direction from a base location.
+     *
      * @param towards
      * @return
      */
@@ -350,7 +364,7 @@ public class IngameState extends GameState {
         assert directions != null && directions.length == 2;
 
         List<LabyrinthGenerator.Section> walls = new ArrayList<>();
-        for(int i = 0; i < wallAmount; i++) {
+        for (int i = 0; i < wallAmount; i++) {
             final var start = wallBase.getBlock().getRelative(directions[0], radius + i * 4).getLocation().toCenterLocation();
             final var end = wallBase.getBlock().getRelative(directions[1], radius + i * 4).getLocation().toCenterLocation();
 
@@ -363,6 +377,7 @@ public class IngameState extends GameState {
 
     /**
      * Get the center location between two locations.
+     *
      * @param loc1 The first location
      * @param loc2 The second location
      * @return The center location between the two
@@ -378,6 +393,7 @@ public class IngameState extends GameState {
 
     /**
      * Check if a player is inside the center walls (in the labyrinth, not on the highway ring).
+     *
      * @param player The player to check
      * @return true if the player is inside the center walls, false otherwise
      */
@@ -428,10 +444,12 @@ public class IngameState extends GameState {
         player.getInventory().clear();
 
         player.getInventory().setItem(0, new ItemStackBuilder(XMaterial.STONE_SWORD).makeUnbreakable().buildStack());
-        if(!death) {
-            player.getInventory().setItem(1, new ItemStackBuilder(XMaterial.DIRT).withAmount(4).buildStack());
-            player.getInventory().setItem(2, new ItemStackBuilder(XMaterial.COBBLESTONE).withAmount(2).buildStack());
-            player.getInventory().setItem(3, new ItemStackBuilder(XMaterial.OAK_PLANKS).withAmount(2).buildStack());
+        player.getInventory().setItem(1, new ItemStackBuilder(XMaterial.WOODEN_AXE).makeUnbreakable().buildStack());
+
+        if (!death) {
+            player.getInventory().setItem(2, new ItemStackBuilder(XMaterial.DIRT).withAmount(4).buildStack());
+            player.getInventory().setItem(3, new ItemStackBuilder(XMaterial.COBBLESTONE).withAmount(2).buildStack());
+            player.getInventory().setItem(4, new ItemStackBuilder(XMaterial.OAK_PLANKS).withAmount(2).buildStack());
         }
 
         player.getInventory().setItem(8, new ItemStackBuilder(XMaterial.CHEST)
@@ -451,10 +469,10 @@ public class IngameState extends GameState {
             final var usedItem = event.getItem();
             final var team = GreedyGhosts.getInstance().getGameManager().getTeamManager().getTeam(event.getPlayer());
 
-            if(team instanceof GhostTeam) {
+            if (team instanceof GhostTeam) {
 
                 // For the ghosts the chest is the kit selection
-                if(usedItem.getType().equals(Material.CHEST)) {
+                if (usedItem.getType().equals(Material.CHEST)) {
                     PluginCore.getInstance().getScreens().open(event.getPlayer(), KitSelectionScreen.SCREEN_ID);
                     event.setCancelled(true);
                     return;
@@ -463,7 +481,7 @@ public class IngameState extends GameState {
             } else {
 
                 // Check if it's the item shop
-                if(usedItem.getType().equals(Material.CHEST)) {
+                if (usedItem.getType().equals(Material.CHEST)) {
                     PluginCore.getInstance().getScreens().open(event.getPlayer(), ItemShopScreen.SCREEN_ID);
                     event.setCancelled(true);
                     return;
@@ -484,6 +502,11 @@ public class IngameState extends GameState {
                     reduceMainHandItem(event.getPlayer(), Material.GLOWSTONE_DUST);
                 }
             }
+        }
+
+        // Make sure fields can't be destroyed
+        if (event.getAction().equals(Action.PHYSICAL)) {
+            event.setCancelled(true);
         }
     }
 
@@ -516,9 +539,9 @@ public class IngameState extends GameState {
             return;
         }
 
-        if(boostProtection.containsKey(event.getPlayer())) {
+        if (boostProtection.containsKey(event.getPlayer())) {
             boostProtection.put(event.getPlayer(), boostProtection.get(event.getPlayer()) - 1);
-            if(boostProtection.get(event.getPlayer()) <= 0) {
+            if (boostProtection.get(event.getPlayer()) <= 0) {
                 boostProtection.remove(event.getPlayer());
             }
         }
@@ -527,21 +550,21 @@ public class IngameState extends GameState {
         var inCenter = isInsideCenterWalls(event.getPlayer());
 
         // Movement handling for the ghosts
-        if(team instanceof GhostTeam) {
+        if (team instanceof GhostTeam) {
 
             // Give them speed if they're inside the highway walls (but not in the center labyrinth)
-            if(!inCenter) {
+            if (!inCenter) {
                 kitGiven.remove(event.getPlayer());
 
-                if(!event.getPlayer().hasPotionEffect(PotionEffectType.SPEED)) {
+                if (!event.getPlayer().hasPotionEffect(PotionEffectType.SPEED)) {
                     event.getPlayer().addPotionEffect(new PotionEffect(PotionEffectType.SPEED, Integer.MAX_VALUE, 10, false, false));
 
                     // If the ghost's inventory contains a snack decrement the counter
-                    if(hasSnack(event.getPlayer())) {
+                    if (hasSnack(event.getPlayer())) {
                         Bukkit.broadcast(GreedyGhosts.PREFIX.append(Component.text(event.getPlayer().getName(), NamedTextColor.GOLD, TextDecoration.BOLD)).appendSpace()
                                 .append(Component.text("stole a snack and returned successfully!", NamedTextColor.GRAY)));
                         snacksLeft--;
-                        if(snacksLeft <= 0) {
+                        if (snacksLeft <= 0) {
                             handleWin(team);
                         }
                     }
@@ -554,13 +577,13 @@ public class IngameState extends GameState {
                 event.getPlayer().removePotionEffect(PotionEffectType.SPEED);
 
                 // Boost away in case they don't have a kit selected
-                if(!selectedKits.containsKey(event.getPlayer())) {
-                    if(!boostProtection.containsKey(event.getPlayer())) {
+                if (!selectedKits.containsKey(event.getPlayer())) {
+                    if (!boostProtection.containsKey(event.getPlayer())) {
                         event.getPlayer().sendMessage(GreedyGhosts.PREFIX.append(Component.text("Please select a kit!", NamedTextColor.RED)));
                         boostProtection.put(event.getPlayer(), 20);
                     }
                 } else {
-                    if(!kitGiven.containsKey(event.getPlayer())) {
+                    if (!kitGiven.containsKey(event.getPlayer())) {
                         selectedKits.get(event.getPlayer()).giveKit(event.getPlayer());
                         kitGiven.put(event.getPlayer(), true);
                     }
@@ -571,18 +594,31 @@ public class IngameState extends GameState {
         // Check if they wandered into a trap
         ArrayList<DroppableTrap> toRemove = new ArrayList<>();
         for (DroppableTrap trap : traps) {
-            if (trap.location.distance(event.getPlayer().getLocation()) <= 3 && !team.getName().equals(trap.team.getName())) {
+            if (trap.location.distance(event.getPlayer().getLocation()) <= TRAP_RANGE && !team.getName().equals(trap.team.getName())) {
 
                 // Make sure the trap is actually visible
-                final var direction = event.getPlayer().getLocation().clone().subtract(trap.location).toVector().normalize();
-                final var distance = trap.location.distance(event.getPlayer().getLocation());
-                final var result = trap.location.getWorld().rayTraceBlocks(trap.location, direction, distance, FluidCollisionMode.NEVER, true);
-                if(result != null) {
-                    continue;
+                final var toRaytrace = Arrays.asList(
+                        event.getPlayer().getLocation(), // Feet
+                        event.getPlayer().getLocation().clone().add(0, 1, 0), // Middle
+                        event.getPlayer().getLocation().clone().add(0, 2, 0) // Eyes
+                );
+
+                var found = false;
+                for(final var toTrace : toRaytrace) {
+                    final var direction = toTrace.clone().subtract(trap.location).toVector().normalize();
+                    final var distance = trap.location.distance(toTrace);
+                    final var result = trap.location.getWorld().rayTraceBlocks(trap.location, direction, distance, FluidCollisionMode.NEVER, true);
+
+                    if (result == null) {
+                        found = true;
+                        break;
+                    }
                 }
 
-                toRemove.add(trap);
-                trap.onEnter(event.getPlayer());
+                if(found) {
+                    toRemove.add(trap);
+                    trap.onEnter(event.getPlayer());
+                }
                 break;
             }
         }
@@ -602,10 +638,10 @@ public class IngameState extends GameState {
     public void onDamageByEntity(EntityDamageByEntityEvent event) {
 
         // Make sure ghosts don't do any attack damage against farmers or each other
-        if((event.getCause() == EntityDamageEvent.DamageCause.ENTITY_ATTACK || event.getCause() == EntityDamageEvent.DamageCause.ENTITY_SWEEP_ATTACK) &&
+        if ((event.getCause() == EntityDamageEvent.DamageCause.ENTITY_ATTACK || event.getCause() == EntityDamageEvent.DamageCause.ENTITY_SWEEP_ATTACK) &&
                 event.getDamager() instanceof Player damager && event.getEntity() instanceof Player player) {
             final var team = GreedyGhosts.getInstance().getGameManager().getTeamManager().getTeam(damager);
-            if(team instanceof GhostTeam) {
+            if (team instanceof GhostTeam) {
                 event.setDamage(0);
             } else {
                 player.addPotionEffect(new PotionEffect(PotionEffectType.GLOWING, 100, 1, false, false));
@@ -638,7 +674,7 @@ public class IngameState extends GameState {
         }
 
         // Instantly light placed tnt
-        if(event.getBlockPlaced().getType().equals(Material.TNT)) {
+        if (event.getBlockPlaced().getType().equals(Material.TNT)) {
             event.getBlockPlaced().setType(Material.AIR);
             final var world = event.getBlockPlaced().getWorld();
             world.spawnEntity(event.getBlockPlaced().getLocation().toCenterLocation(), EntityType.TNT);
@@ -662,6 +698,12 @@ public class IngameState extends GameState {
             // Add the block as placed otherwise
             placedBlocks.put(event.getBlock().getLocation(), true);
         }
+
+        // Make sure ghosts can't place blocks
+        final var team = GreedyGhosts.getInstance().getGameManager().getTeamManager().getTeam(event.getPlayer());
+        if (team instanceof GhostTeam) {
+            event.setCancelled(true);
+        }
     }
 
     final List<Material> grassTypes = Arrays.asList(
@@ -674,12 +716,8 @@ public class IngameState extends GameState {
             Material.FERN, Material.SWEET_BERRY_BUSH
     );
 
-    final List<Material> woolTypes = Arrays.asList(
-            Material.WHITE_WOOL, Material.BLACK_WOOL, Material.BLUE_WOOL, Material.GRAY_WOOL,
-            Material.LIME_WOOL, Material.BROWN_WOOL, Material.CYAN_WOOL, Material.MAGENTA_WOOL,
-            Material.ORANGE_WOOL, Material.LIGHT_BLUE_WOOL, Material.LIGHT_GRAY_WOOL,
-            Material.PINK_WOOL, Material.PURPLE_WOOL, Material.GREEN_WOOL, Material.YELLOW_WOOL,
-            Material.RED_WOOL
+    final List<Material> snackTypes = Arrays.asList(
+            Material.RED_STAINED_GLASS
     );
 
     /**
@@ -689,8 +727,8 @@ public class IngameState extends GameState {
      * @return If the inventory contains a snack or not
      */
     private boolean hasSnack(Player player) {
-        for(Material wool : woolTypes) {
-            if(player.getInventory().contains(wool)) {
+        for (Material wool : snackTypes) {
+            if (player.getInventory().contains(wool)) {
                 return true;
             }
         }
@@ -706,13 +744,22 @@ public class IngameState extends GameState {
 
         final var team = GreedyGhosts.getInstance().getGameManager().getTeamManager().getTeam(event.getPlayer());
 
+        // Let farms break pumpkins for getting carved pumpkins
+        if (team instanceof FarmerTeam) {
+            if (event.getBlock().getType() == Material.PUMPKIN || event.getBlock().getType() == Material.CARVED_PUMPKIN) {
+                event.getPlayer().getInventory().addItem(new ItemStackBuilder(Material.CARVED_PUMPKIN).buildStack());
+                snackBlocks.add(new SnackBlock(PUMPKIN_RESPAWN_DELAY, event.getBlock().getLocation(), event.getBlock().getType()));
+                event.getBlock().setType(Material.BEDROCK);
+            }
+        }
+
         // Handle ghosts breaking wool blocks (snacks)
-        if(team instanceof GhostTeam && event.getBlock().getType().toString().contains("WOOL")) {
+        if (team instanceof GhostTeam && snackTypes.contains(event.getBlock().getType())) {
             event.setCancelled(true);
             event.setDropItems(false);
 
             // Make sure the ghost doesn't already have a snack
-            if(hasSnack(event.getPlayer())) {
+            if (hasSnack(event.getPlayer())) {
                 event.getPlayer().sendMessage(Component.text("You already have a snack!", NamedTextColor.RED));
                 return;
             }
@@ -721,6 +768,7 @@ public class IngameState extends GameState {
             event.getPlayer().getInventory().addItem(new ItemStackBuilder(event.getBlock().getType())
                     .withName(Component.text("Snack", NamedTextColor.GOLD, TextDecoration.BOLD))
                     .buildStack());
+            event.getPlayer().addPotionEffect(new PotionEffect(PotionEffectType.GLOWING, 200, 1, false, false));
 
             // Make sure the block is reverted from bedrock after being replaced
             snackBlocks.add(new SnackBlock(SNACK_RESPAWN_DELAY, event.getBlock().getLocation(), event.getBlock().getType()));
@@ -772,9 +820,9 @@ public class IngameState extends GameState {
         }
 
         // Make sure to reward the farmers when a ghost gets killed
-        if(team instanceof GhostTeam) {
-            for(var farmer : GreedyGhosts.getInstance().getGameManager().getTeamManager().getTeam(FarmerTeam.TEAM_NAME).getPlayers()) {
-                if(farmer.getGameMode().equals(GameMode.SURVIVAL)) {
+        if (team instanceof GhostTeam) {
+            for (var farmer : GreedyGhosts.getInstance().getGameManager().getTeamManager().getTeam(FarmerTeam.TEAM_NAME).getPlayers()) {
+                if (farmer.getGameMode().equals(GameMode.SURVIVAL)) {
                     farmer.getInventory().addItem(new ItemStackBuilder(XMaterial.CARVED_PUMPKIN).withAmount(5).buildStack());
                 }
             }

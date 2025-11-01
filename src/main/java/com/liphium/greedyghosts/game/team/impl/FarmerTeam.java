@@ -58,14 +58,14 @@ public class FarmerTeam extends Team {
         Bukkit.broadcast(Component.text("   The").appendSpace()
                 .append(Component.text("Farmers", NamedTextColor.YELLOW, TextDecoration.BOLD)).appendSpace()
                 .append(Component.text("won the", NamedTextColor.GRAY)).appendSpace()
-                .append(Component.text("game", NamedTextColor.GREEN))
+                .append(Component.text("game", NamedTextColor.YELLOW))
                 .append(Component.text("!", NamedTextColor.GRAY)));
         Bukkit.broadcast(Component.text(" "));
         Bukkit.broadcast(Component.text("The", NamedTextColor.GRAY).appendSpace()
                 .append(Component.text("ghosts", NamedTextColor.WHITE, TextDecoration.BOLD)).appendSpace()
                 .append(Component.text("weren't able to", NamedTextColor.GRAY)));
         Bukkit.broadcast(Component.text("steal all", NamedTextColor.GRAY).appendSpace()
-                .append(Component.text("snacks", NamedTextColor.GREEN))
+                .append(Component.text("snacks", NamedTextColor.YELLOW))
                 .append(Component.text("!", NamedTextColor.GRAY)));
         Bukkit.broadcast(Component.text(" "));
 
