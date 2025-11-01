@@ -346,7 +346,7 @@ public class IngameState extends GameState {
             final var center2 = getCenter(wall.wall.end(), wall.wallBefore.end());
             final var wallSpawn = getCenter(center1, center2);
 
-            wall.wall.place(5, Material.BEDROCK, new ArrayList<>());
+            wall.wall.place(7, Material.BEDROCK, new ArrayList<>());
             spawnLocations.put(wall.direction, wallSpawn);
         }
     }
@@ -358,7 +358,7 @@ public class IngameState extends GameState {
      * @return
      */
     private List<LabyrinthGenerator.Section> generateSectionsForSide(Location base, BlockFace towards, int radius) {
-        final var wallAmount = 7;
+        final var wallAmount = 5;
         var wallBase = base.getBlock().getRelative(towards, radius).getLocation().toCenterLocation();
         final var directions = getTwoDirections(towards);
         assert directions != null && directions.length == 2;
@@ -644,7 +644,7 @@ public class IngameState extends GameState {
             if (team instanceof GhostTeam) {
                 event.setDamage(0);
             } else {
-                player.addPotionEffect(new PotionEffect(PotionEffectType.GLOWING, 100, 1, false, false));
+                player.addPotionEffect(new PotionEffect(PotionEffectType.GLOWING, 120, 1, false, false));
             }
         }
 
@@ -663,12 +663,24 @@ public class IngameState extends GameState {
 
     @Override
     public void onEntityExplode(EntityExplodeEvent event) {
-        event.blockList().clear();
+        event.blockList().removeIf(block -> {
+            if(placedBlocks.containsKey(block.getLocation())) {
+                placedBlocks.remove(block.getLocation());
+                return false;
+            }
+
+            return true;
+        });
     }
 
     @Override
     public void onPlace(BlockPlaceEvent event) {
         if (event.getBlockPlaced().getLocation().getY() >= 250) {
+            event.setCancelled(true);
+            return;
+        }
+
+        if(event.getBlockPlaced().getType().equals(Material.CARVED_PUMPKIN)) {
             event.setCancelled(true);
             return;
         }
@@ -768,7 +780,7 @@ public class IngameState extends GameState {
             event.getPlayer().getInventory().addItem(new ItemStackBuilder(event.getBlock().getType())
                     .withName(Component.text("Snack", NamedTextColor.GOLD, TextDecoration.BOLD))
                     .buildStack());
-            event.getPlayer().addPotionEffect(new PotionEffect(PotionEffectType.GLOWING, 200, 1, false, false));
+            event.getPlayer().addPotionEffect(new PotionEffect(PotionEffectType.GLOWING, 160, 1, false, false));
 
             // Make sure the block is reverted from bedrock after being replaced
             snackBlocks.add(new SnackBlock(SNACK_RESPAWN_DELAY, event.getBlock().getLocation(), event.getBlock().getType()));
@@ -823,7 +835,7 @@ public class IngameState extends GameState {
         if (team instanceof GhostTeam) {
             for (var farmer : GreedyGhosts.getInstance().getGameManager().getTeamManager().getTeam(FarmerTeam.TEAM_NAME).getPlayers()) {
                 if (farmer.getGameMode().equals(GameMode.SURVIVAL)) {
-                    farmer.getInventory().addItem(new ItemStackBuilder(XMaterial.CARVED_PUMPKIN).withAmount(5).buildStack());
+                    farmer.getInventory().addItem(new ItemStackBuilder(XMaterial.CARVED_PUMPKIN).withAmount(3).buildStack());
                 }
             }
         }
@@ -850,7 +862,12 @@ public class IngameState extends GameState {
         event.setRespawnLocation(Objects.requireNonNull(GreedyGhosts.getInstance().getGameManager().getMapLocation(SPECTATOR_LOCATION)));
         event.getPlayer().setGameMode(GameMode.SPECTATOR);
 
-        currentRespawnTimer.put(event.getPlayer(), RESPAWN_DELAY);
+        final var team = GreedyGhosts.getInstance().getGameManager().getTeamManager().getTeam(event.getPlayer());
+        if(team instanceof GhostTeam) {
+            currentRespawnTimer.put(event.getPlayer(), 3);
+        } else {
+            currentRespawnTimer.put(event.getPlayer(), RESPAWN_DELAY);
+        }
     }
 
     public void handleWin(Team team) {

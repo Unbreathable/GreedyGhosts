@@ -30,7 +30,7 @@ public record HotbarKit(String name, XMaterial material, ItemStack[] items) {
                 null,
                 new ItemStackBuilder(XMaterial.LINGERING_POTION).withName("Lingering Potion of Regeneration I").withBasePotionType(PotionType.REGENERATION).withAmount(2).buildStack(),
                 new ItemStackBuilder(XMaterial.SPLASH_POTION).withName("Splash Potion of Slowness I").withBasePotionType(PotionType.SLOWNESS).withAmount(3).buildStack(),
-                new ItemStackBuilder(XMaterial.SPLASH_POTION).withName("Splash Potion of Harming I").withBasePotionType(PotionType.HARMING).withAmount(1).buildStack(),
+                new ItemStackBuilder(XMaterial.SPLASH_POTION).withName("Splash Potion of Harming I").withBasePotionType(PotionType.HARMING).withAmount(2).buildStack(),
         });
     }
 
@@ -43,8 +43,8 @@ public record HotbarKit(String name, XMaterial material, ItemStack[] items) {
                 null,
                 null,
                 null,
-                new ItemStackBuilder(XMaterial.ZOMBIE_SPAWN_EGG).withAmount(1).buildStack(),
-                new ItemStackBuilder(XMaterial.SKELETON_SPAWN_EGG).withAmount(1).buildStack(),
+                null,
+                new ItemStackBuilder(XMaterial.ZOMBIE_SPAWN_EGG).withAmount(2).buildStack(),
         });
     }
 

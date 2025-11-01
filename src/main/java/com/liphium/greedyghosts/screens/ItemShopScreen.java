@@ -25,8 +25,8 @@ public class ItemShopScreen extends CScreen {
         // All the blocks and items
         setItem(0, itemWithPrice(XMaterial.GOLDEN_APPLE, "Golden apple", 6, 1));
         setItem(1, itemWithPrice(XMaterial.COARSE_DIRT, "Dirt", 6, 4));
-        setItem(2, itemWithPrice(XMaterial.OAK_PLANKS, "Planks", 12, 4));
-        setItem(3, itemWithPrice(XMaterial.COBBLESTONE, "Cobblestone", 15, 4));
+        setItem(2, itemWithPrice(XMaterial.OAK_PLANKS, "Planks", 8, 4));
+        setItem(3, itemWithPrice(XMaterial.COBBLESTONE, "Cobblestone", 10, 4));
         setItem(4, spacer());
 
         // All the traps
